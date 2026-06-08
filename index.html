@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>🌿 Rotina Compartilhada - Tempo Real com Firebase</title>
+  <!-- Firebase SDKs (versão compatível com seu config) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: linear-gradient(135deg, #e0ecd7 0%, #c2d4b5 100%);
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      background: #2c5f2d;
+      border-radius: 48px;
+      padding: 20px 28px;
+      margin-bottom: 28px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    .header h1 {
+      font-size: 1.6rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .sync-badge {
+      background: #0f9d58;
+      padding: 8px 18px;
+      border-radius: 60px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    .sync-badge.offline {
+      background: #b34e3f;
+    }
+    .progress-card {
+      background: #fffef7;
+      border-radius: 32px;
+      padding: 18px 28px;
+      margin-bottom: 28px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    .progress-stats {
+      font-weight: 700;
+      font-size: 1.2rem;
+      background: #e9e1c7;
+      padding: 8px 20px;
+      border-radius: 60px;
+      color: #2c5f2d;
+    }
+    .reset-all-btn {
+      background: #c7423f;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 60px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+    .reset-all-btn:hover {
+      background: #a1302e;
+      transform: scale(0.97);
+    }
+    .two-columns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+    }
+    .col {
+      flex: 1;
+      min-width: 320px;
+    }
+    .card {
+      background: #fffef7;
+      border-radius: 36px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px -10px rgba(0,0,0,0.2);
+      margin-bottom: 24px;
+    }
+    .card-header {
+      background: #3b2c1a;
+      color: #fef1da;
+      padding: 18px 24px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-header span {
+      background: #d9a13b;
+      padding: 4px 14px;
+      border-radius: 60px;
+      font-size: 0.75rem;
+    }
+    .task-list {
+      padding: 12px 8px 20px 8px;
+      max-height: 650px;
+      overflow-y: auto;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 18px;
+      margin: 6px 12px;
+      background: #ffffff;
+      border-radius: 80px;
+      border: 1px solid #efe2cb;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .task-item:hover {
+      background: #fffae9;
+      transform: translateX(5px);
+      border-color: #cbbf9a;
+    }
+    .task-check {
+      width: 28px;
+      height: 28px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .task-check input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+    .checkmark {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 28px;
+      height: 28px;
+      background: #f0ebdd;
+      border-radius: 50%;
+      border: 2px solid #c2b087;
+      cursor: pointer;
+      transition: 0.1s;
+    }
+    .task-check input:checked + .checkmark {
+      background: #2c5f2d;
+      border-color: #2c5f2d;
+    }
+    .checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+      left: 9px;
+      top: 5px;
+      width: 6px;
+      height: 11px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .task-check input:checked + .checkmark:after {
+      display: block;
+    }
+    .task-info {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .task-time {
+      background: #e7ddca;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      font-family: monospace;
+      min-width: 70px;
+      text-align: center;
+      color: #3d2b14;
+    }
+    .task-desc {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #2c2b26;
+      line-height: 1.3;
+    }
+    .completed-task .task-desc {
+      text-decoration: line-through;
+      color: #979482;
+    }
+    .completed-task .task-time {
+      background: #cbc2ab;
+      text-decoration: none;
+    }
+    .footer-info {
+      text-align: center;
+      margin-top: 28px;
+      padding: 18px;
+      background: #e6dcc8;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      color: #4b3a24;
+      font-weight: 500;
+    }
+    @media (max-width: 700px) {
+      .task-info {
+        flex-direction: column;
+        gap: 5px;
+      }
+      .task-item {
+        border-radius: 28px;
+      }
+      .header h1 {
+        font-size: 1.2rem;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e2d5bc;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #8f7a55;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>
+      🌱 Minha Rotina Compartilhada
+      <span style="font-size:0.75rem; background:#f9b23f; padding:4px 12px; border-radius:60px;">✨ Tempo Real</span>
+    </h1>
+    <div class="sync-badge" id="syncStatus">
+      🔄 Conectando ao Firebase...
+    </div>
+  </div>
+
+  <div class="progress-card">
+    <div class="progress-stats" id="globalStats">📊 Carregando tarefas...</div>
+    <button class="reset-all-btn" id="resetAllBtn">🗑️ Resetar Tudo (para todos)</button>
+  </div>
+
+  <div class="two-columns">
+    <!-- COLUNA ESQUERDA: rotina com horários -->
+    <div class="col">
+      <div class="card">
+        <div class="card-header">
+          ⏰ ROTINA HORÁRIA
+          <span>ordem do dia</span>
+        </div>
+        <div class="task-list" id="timelineContainer"></div>
+      </div>
+    </div>
+
+    <!-- COLUNA DIREITA: tarefas essenciais -->
+    <div class="col">
+      <div class="card">
+        <div class="card-header">
+          🌻 TAREFAS ESSENCIAIS
+          <span>foco diário</span>
+        </div>
+        <div class="task-list" id="extraContainer"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-info">
+    ✅ <strong>Sincronização automática em tempo real</strong> — qualquer tarefa marcada ou desmarcada aparece instantaneamente para todos que estiverem com o site aberto.<br>
+    📡 Dados salvos no Firebase | Compartilhe o link com sua família!
+  </div>
+</div>
+
+<script>
+  // ========== SUA CONFIGURAÇÃO DO FIREBASE (COPIADA) ==========
+  const firebaseConfig = {
+    apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
+    authDomain: "rotina-plante.firebaseapp.com",
+    projectId: "rotina-plante",
+    storageBucket: "rotina-plante.firebasestorage.app",
+    messagingSenderId: "382389999996",
+    appId: "1:382389999996:web:d210a061cf2587ab84acf9",
+    measurementId: "G-GMZ7JJ0V9K"
+  };
+
+  // Inicializar Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // ========== LISTA COMPLETA DE TAREFAS ==========
+  // Tarefas com horário definido (rotina principal)
+  const timelineTasks = [
+    { id: "t0", time: "06:00", desc: "Levantar e preparar" },
+    { id: "t1", time: "06:20", desc: "Culto famíliar" },
+    { id: "t2", time: "07:00", desc: "Café da manhã" },
+    { id: "t3", time: "07:30", desc: "Preparar (tarefas iniciais)" },
+    { id: "t4", time: "07:30", desc: "Dar comida aos cachorros (manhã)" },
+    { id: "t5", time: "07:45", desc: "Sair" },
+    { id: "t6", time: "08:00", desc: "Dar comida prós cachorros (complemento)" },
+    { id: "t7", time: "08:15", desc: "Molhar a horta (manhã)" },
+    { id: "t8", time: "08:30", desc: "Molhar a grama toda" },
+    { id: "t9", time: "11:00", desc: "Molhar as plantas da Taís" },
+    { id: "t10", time: "11:20", desc: "Fazer a lista pras mudas que deve trazer" },
+    { id: "t11", time: "11:40", desc: "Procurar folha de aça peixe" },
+    { id: "t12", time: "12:00", desc: "Almoço" },
+    { id: "t13", time: "13:00", desc: "Molhar a horta (meio-dia)" },
+    { id: "t14", time: "13:35", desc: "Podar o pomar e capinar" },
+    { id: "t15", time: "15:00", desc: "Molhar a grama toda (tarde)" },
+    { id: "t16", time: "16:00", desc: "Dar comida aos cachorros (tarde)" },
+    { id: "t17", time: "17:00", desc: "Banho" },
+    { id: "t18", time: "17:30", desc: "Janta" },
+    { id: "t19", time: "18:30", desc: "Fazer o culto famíliar" },
+    { id: "t20", time: "19:00", desc: "Dormir" }
+  ];
+
+  // Tarefas extras (sem horário fixo / essenciais)
+  const extraTasks = [
+    { id: "e0", time: "🐦", desc: "Trazer os passarinhos para casa" },
+    { id: "e1", time: "🐟", desc: "Trazer os peixinhos para casa e cuidar deles" },
+    { id: "e2", time: "🌿", desc: "Cuidar das plantas da casa" },
+    { id: "e3", time: "🌙", desc: "Tirar a ferramenta do varal para não ficar exposta à noite" },
+    { id: "e4", time: "💡", desc: "Ligar a luz da frente e de trás da casa à noite" },
+    { id: "e5", time: "🐜", desc: "Eliminar as formigas do galinheiro (comem a comida das galinhas)" },
+    { id: "e6", time: "🌻", desc: "Molhar as sementes de girassol e a planta da senhora Alba" },
+    { id: "e7", time: "🍃", desc: "Procurar folha de asa peixe para a saúde da minha filha" },
+    { id: "e8", time: "🔍", desc: "Identificar a planta que conheço, mas esqueci o nome" },
+    { id: "e9", time: "💧", desc: "Molhar as plantas da horta (terceira vez - final da tarde)" }
+  ];
+
+  // Estado dos checkboxes (vem do Firebase)
+  let tasksStatus = {};  // ex: { "t0": true, "e2": false }
+
+  // ========== FUNÇÕES DE RENDERIZAÇÃO ==========
+  function renderTimeline() {
+    const container = document.getElementById('timelineContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    timelineTasks.forEach(task => {
+      const isChecked = tasksStatus[task.id] === true;
+      const taskDiv = document.createElement('div');
+      taskDiv.className = `task-item ${isChecked ? 'completed-task' : ''}`;
+      
+      // Estrutura do checkbox
+      const checkWrapper = document.createElement('div');
+      checkWrapper.className = 'task-check';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = isChecked;
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        // Atualiza no Firebase
+        const updates = {};
+        updates[`/tasks/${task.id}`] = checkbox.checked;
+        database.ref().update(updates);
+      });
+      
+      const spanMark = document.createElement('span');
+      spanMark.className = 'checkmark';
+      checkWrapper.appendChild(checkbox);
+      checkWrapper.appendChild(spanMark);
+      
+      // Informações da tarefa
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'task-info';
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'task-time';
+      timeSpan.textContent = task.time;
+      const descSpan = document.createElement('span');
+      descSpan.className = 'task-desc';
+      descSpan.textContent = task.desc;
+      infoDiv.appendChild(timeSpan);
+      infoDiv.appendChild(descSpan);
+      
+      taskDiv.appendChild(checkWrapper);
+      taskDiv.appendChild(infoDiv);
+      
+      // Clique em qualquer lugar da tarefa alterna o checkbox
+      taskDiv.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT' || checkWrapper.contains(e.target)) return;
+        checkbox.checked = !checkbox.checked;
+        const changeEvent = new Event('change', { bubbles: true });
+        checkbox.dispatchEvent(changeEvent);
+      });
+      
+      container.appendChild(taskDiv);
+    });
+  }
+  
+  function renderExtras() {
+    const container = document.getElementById('extraContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    extraTasks.forEach(task => {
+      const isChecked = tasksStatus[task.id] === true;
+      const taskDiv = document.createElement('div');
+      taskDiv.className = `task-item ${isChecked ? 'completed-task' : ''}`;
+      
+      const checkWrapper = document.createElement('div');
+      checkWrapper.className = 'task-check';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = isChecked;
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const updates = {};
+        updates[`/tasks/${task.id}`] = checkbox.checked;
+        database.ref().update(updates);
+      });
+      
+      const spanMark = document.createElement('span');
+      spanMark.className = 'checkmark';
+      checkWrapper.appendChild(checkbox);
+      checkWrapper.appendChild(spanMark);
+      
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'task-info';
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'task-time';
+      timeSpan.textContent = task.time;
+      const descSpan = document.createElement('span');
+      descSpan.className = 'task-desc';
+      descSpan.textContent = task.desc;
+      infoDiv.appendChild(timeSpan);
+      infoDiv.appendChild(descSpan);
+      
+      taskDiv.appendChild(checkWrapper);
+      taskDiv.appendChild(infoDiv);
+      
+      taskDiv.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT' || checkWrapper.contains(e.target)) return;
+        checkbox.checked = !checkbox.checked;
+        const changeEvent = new Event('change', { bubbles: true });
+        checkbox.dispatchEvent(changeEvent);
+      });
+      
+      container.appendChild(taskDiv);
+    });
+  }
+  
+  function updateGlobalStats() {
+    const allTasks = [...timelineTasks, ...extraTasks];
+    let completedCount = 0;
+    allTasks.forEach(task => {
+      if (tasksStatus[task.id] === true) completedCount++;
+    });
+    const total = allTasks.length;
+    const statsElem = document.getElementById('globalStats');
+    if (statsElem) {
+      statsElem.innerHTML = `✅ ${completedCount} / ${total} tarefas concluídas`;
+      if (completedCount === total && total > 0) {
+        statsElem.style.background = "#f9b23f";
+        statsElem.style.color = "#2c3e1f";
+      } else {
+        statsElem.style.background = "#e9e1c7";
+        statsElem.style.color = "#2c5f2d";
+      }
+    }
+  }
+  
+  function renderAll() {
+    renderTimeline();
+    renderExtras();
+    updateGlobalStats();
+  }
+  
+  // ========== FIREBASE: ESCUTAR MUDANÇAS EM TEMPO REAL ==========
+  function initFirebaseSync() {
+    const tasksRef = database.ref('/tasks');
+    
+    tasksRef.on('value', (snapshot) => {
+      const data = snapshot.val() || {};
+      tasksStatus = {};
+      
+      // Inicializa todas as tarefas como false por padrão
+      [...timelineTasks, ...extraTasks].forEach(task => {
+        tasksStatus[task.id] = data[task.id] === true;
+      });
+      
+      renderAll();
+      
+      // Atualiza indicador de conexão
+      const syncDiv = document.getElementById('syncStatus');
+      if (syncDiv) {
+        syncDiv.innerHTML = '✅ Conectado & Sincronizando';
+        syncDiv.style.background = "#0f9d58";
+      }
+    }, (error) => {
+      console.error('Erro Firebase:', error);
+      const syncDiv = document.getElementById('syncStatus');
+      if (syncDiv) {
+        syncDiv.innerHTML = '⚠️ Offline - Verifique internet';
+        syncDiv.style.background = "#b34e3f";
+        syncDiv.classList.add('offline');
+      }
+    });
+    
+    // Monitorar estado da conexão
+    database.ref('.info/connected').on('value', (snap) => {
+      const syncDiv = document.getElementById('syncStatus');
+      if (syncDiv) {
+        if (snap.val() === true) {
+          syncDiv.innerHTML = '🟢 Online - Tempo Real Ativo';
+          syncDiv.style.background = "#0f9d58";
+        } else {
+          syncDiv.innerHTML = '🔴 Offline - Reconectando...';
+          syncDiv.style.background = "#b34e3f";
+        }
+      }
+    });
+  }
+  
+  // ========== RESETAR TODAS AS TAREFAS GLOBALMENTE ==========
+  function resetAllTasks() {
+    if (confirm('⚠️ ATENÇÃO: Isso vai DESMARCAR TODAS as tarefas para TODOS os usuários! Deseja continuar?')) {
+      const allTaskIds = [...timelineTasks.map(t => t.id), ...extraTasks.map(e => e.id)];
+      const updates = {};
+      allTaskIds.forEach(id => {
+        updates[`/tasks/${id}`] = false;
+      });
+      database.ref().update(updates)
+        .then(() => {
+          alert('✅ Todas as tarefas foram resetadas globalmente!');
+        })
+        .catch(err => {
+          alert('❌ Erro ao resetar: ' + err.message);
+        });
+    }
+  }
+  
+  // ========== INICIALIZAÇÃO ==========
+  document.addEventListener('DOMContentLoaded', () => {
+    // Verificar se o Firebase carregou corretamente
+    if (typeof firebase === 'undefined') {
+      alert('Erro: Firebase não carregou. Verifique sua internet.');
+      return;
+    }
+    
+    initFirebaseSync();
+    
+    const resetBtn = document.getElementById('resetAllBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', resetAllTasks);
+    }
+    
+    // Exibir data atual no título (opcional)
+    const today = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    let formatted = today.toLocaleDateString('pt-BR', options);
+    formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    const headerTitle = document.querySelector('.header h1');
+    if (headerTitle && !headerTitle.innerHTML.includes('📅')) {
+      headerTitle.innerHTML += `<span style="font-size:0.7rem; margin-left:10px;">📅 ${formatted}</span>`;
+    }
+  });
+</script>
+</body>
+</html>

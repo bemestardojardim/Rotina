@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>🌱 Rotina Compartilhada - Multi-usuário</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div id="loginScreen" class="login-container">
+  <div class="login-card">
+    <h1>🌿 Rotina Compartilhada</h1>
+    <p style="margin-bottom: 24px;">Entre com suas credenciais</p>
+    <input type="text" id="loginUsername" placeholder="Usuário (gerardo, tais, ronan)" autocomplete="off">
+    <input type="password" id="loginPassword" placeholder="Senha">
+    <button id="loginBtn">Entrar</button>
+    <div id="loginError" class="error-msg"></div>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="appContainer" class="app-container">
+  <div class="app-header" id="appHeader">
+    <h1 id="appTitle">🌱 Minha Rotina</h1>
+    <div class="user-info">
+      <span id="userNameDisplay"></span>
+      <button id="logoutBtn" class="logout-btn">🚪 Sair</button>
+    </div>
+  </div>
+
+  <div class="progress-card">
+    <div class="progress-stats" id="globalStats">📊 Carregando...</div>
+    <button id="resetAllBtn" class="reset-all-btn" style="background:#c7423f; color:white; border:none; padding:8px 24px; border-radius:60px;">🗑️ Resetar Tudo</button>
+  </div>
+
+  <div class="two-columns">
+    <div class="col">
+      <div class="card">
+        <div class="card-header" id="timelineHeader">
+          ⏰ ROTINA HORÁRIA
+          <div class="card-header-actions">
+            <button id="addTimelineBtn" class="add-task-btn">➕ Nova Tarefa</button>
+          </div>
+        </div>
+        <div class="task-list" id="timelineContainer"></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="card-header" id="extraHeader">
+          🌻 TAREFAS ESSENCIAIS
+          <div class="card-header-actions">
+            <button id="addExtraBtn" class="add-task-btn">➕ Nova Tarefa</button>
+          </div>
+        </div>
+        <div class="task-list" id="extraContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA ADICIONAR/EDITAR TAREFA -->
+<div id="taskModal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle">Adicionar Tarefa</h3>
+    <input type="text" id="modalTaskDesc" placeholder="Descrição da tarefa">
+    <input type="text" id="modalTaskTime" placeholder="Horário (ex: 08:00) ou ícone">
+    <select id="modalTaskType">
+      <option value="rotina">Rotina Horária</option>
+      <option value="essencial">Tarefa Essencial</option>
+    </select>
+    <div class="modal-buttons">
+      <button id="modalSaveBtn" style="background:#2c5f2d; color:white;">Salvar</button>
+      <button id="modalCancelBtn" style="background:#ccc;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== FIREBASE CONFIG ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
+  authDomain: "rotina-plante.firebaseapp.com",
+  projectId: "rotina-plante",
+  storageBucket: "rotina-plante.firebasestorage.app",
+  messagingSenderId: "382389999996",
+  appId: "1:382389999996:web:d210a061cf2587ab84acf9",
+  measurementId: "G-GMZ7JJ0V9K"
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// ========== VARIÁVEIS GLOBAIS ==========
+let usuariosConfig = [];
+let tarefasPadrao = { rotina: [], essenciais: [] };
+let usuarioAtual = null;
+let tarefasRotina = [];
+let tarefasEssenciais = [];
+let tasksStatus = {};
+let editandoId = null;
+let editandoTipo = null;
+
+// ========== CARREGAR CONFIG JSON ==========
+async function carregarConfig() {
+  try {
+    const response = await fetch('tasks-config.json');
+    const config = await response.json();
+    usuariosConfig = config.usuarios;
+    tarefasPadrao = config.tarefas_padrao;
+    tarefasRotina = [...tarefasPadrao.rotina];
+    tarefasEssenciais = [...tarefasPadrao.essenciais];
+  } catch (error) {
+    console.error('Erro ao carregar config:', error);
+    // Fallback manual
+    usuariosConfig = [
+      { id: "gerardo", nome: "Gerardo", senha: "gerardo123", cor_primaria: "#2c5f2d", cor_secundaria: "#3b2c1a", cor_destaque: "#f9b23f" },
+      { id: "tais", nome: "Taís", senha: "tais123", cor_primaria: "#9b59b6", cor_secundaria: "#6c3483", cor_destaque: "#f5b041" },
+      { id: "ronan", nome: "Ronan", senha: "ronan123", cor_primaria: "#2980b9", cor_secundaria: "#1a5276", cor_destaque: "#f39c12", permissoes: ["editar_tudo", "reordenar_tudo"] }
+    ];
+  }
+}
+
+// ========== LOGIN ==========
+function fazerLogin(username, senha) {
+  const usuario = usuariosConfig.find(u => u.id === username.toLowerCase() && u.senha === senha);
+  if (usuario) {
+    usuarioAtual = usuario;
+    localStorage.setItem('usuarioLogado', JSON.stringify({ id: usuario.id, nome: usuario.nome }));
+    aplicarTema(usuario);
+    carregarDadosFirebase();
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'block';
+  } else {
+    document.getElementById('loginError').innerText = 'Usuário ou senha inválidos!';
+  }
+}
+
+function aplicarTema(usuario) {
+  const root = document.documentElement;
+  document.body.style.background = `linear-gradient(135deg, ${usuario.cor_primaria}20 0%, ${usuario.cor_secundaria}40 100%)`;
+  const header = document.getElementById('appHeader');
+  if (header) header.style.background = usuario.cor_primaria;
+  const timelineHeader = document.getElementById('timelineHeader');
+  const extraHeader = document.getElementById('extraHeader');
+  if (timelineHeader) timelineHeader.style.background = usuario.cor_secundaria;
+  if (extraHeader) extraHeader.style.background = usuario.cor_secundaria;
+  document.getElementById('userNameDisplay').innerHTML = `👤 ${usuario.nome}`;
+  document.getElementById('appTitle').innerHTML = `🌱 Rotina de ${usuario.nome}`;
+}
+
+function verificarLoginSalvo() {
+  const salvo = localStorage.getItem('usuarioLogado');
+  if (salvo) {
+    const { id } = JSON.parse(salvo);
+    const usuario = usuariosConfig.find(u => u.id === id);
+    if (usuario) {
+      usuarioAtual = usuario;
+      aplicarTema(usuario);
+      carregarDadosFirebase();
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'block';
+    }
+  }
+}
+
+// ========== FIREBASE: CARREGAR DADOS ==========
+function carregarDadosFirebase() {
+  // Carregar estrutura das tarefas (lista)
+  database.ref(`/users/${usuarioAtual.id}/tarefas`).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data && data.rotina) tarefasRotina = data.rotina;
+    else tarefasRotina = [...tarefasPadrao.rotina];
+    if (data && data.essenciais) tarefasEssenciais = data.essenciais;
+    else tarefasEssenciais = [...tarefasPadrao.essenciais];
+    renderizarTudo();
+  });
+  
+  // Carregar status de conclusão
+  database.ref(`/users/${usuarioAtual.id}/status`).on('value', (snapshot) => {
+    tasksStatus = snapshot.val() || {};
+    renderizarTudo();
+  });
+}
+
+function salvarOrdemRotina(novaOrdem) {
+  database.ref(`/users/${usuarioAtual.id}/tarefas/rotina`).set(novaOrdem);
+}
+
+function salvarOrdemEssenciais(novaOrdem) {
+  database.ref(`/users/${usuarioAtual.id}/tarefas/essenciais`).set(novaOrdem);
+}
+
+function salvarStatus(id, checked) {
+  const updates = {};
+  updates[`/users/${usuarioAtual.id}/status/${id}`] = checked;
+  database.ref().update(updates);
+}
+
+function adicionarTarefa(tipo, descricao, horarioIcone) {
+  const novaId = `${tipo === 'rotina' ? 't' : 'e'}${Date.now()}`;
+  const novaTarefa = { id: novaId, descricao: descricao };
+  if (tipo === 'rotina') {
+    novaTarefa.horario = horarioIcone;
+    tarefasRotina.push(novaTarefa);
+    salvarOrdemRotina(tarefasRotina);
+  } else {
+    novaTarefa.icone = horarioIcone;
+    tarefasEssenciais.push(novaTarefa);
+    salvarOrdemEssenciais(tarefasEssenciais);
+  }
+}
+
+function editarTarefa(tipo, id, novaDesc, novoHorario) {
+  if (tipo === 'rotina') {
+    const idx = tarefasRotina.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      tarefasRotina[idx].descricao = novaDesc;
+      tarefasRotina[idx].horario = novoHorario;
+      salvarOrdemRotina(tarefasRotina);
+    }
+  } else {
+    const idx = tarefasEssenciais.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      tarefasEssenciais[idx].descricao = novaDesc;
+      tarefasEssenciais[idx].icone = novoHorario;
+      salvarOrdemEssenciais(tarefasEssenciais);
+    }
+  }
+}
+
+function deletarTarefa(tipo, id) {
+  if (tipo === 'rotina') {
+    tarefasRotina = tarefasRotina.filter(t => t.id !== id);
+    salvarOrdemRotina(tarefasRotina);
+  } else {
+    tarefasEssenciais = tarefasEssenciais.filter(t => t.id !== id);
+    salvarOrdemEssenciais(tarefasEssenciais);
+  }
+  // Remove status também
+  database.ref(`/users/${usuarioAtual.id}/status/${id}`).remove();
+}
+
+function resetarTudo() {
+  if (confirm('⚠️ Resetar todas as tarefas para o padrão?')) {
+    tarefasRotina = [...tarefasPadrao.rotina];
+    tarefasEssenciais = [...tarefasPadrao.essenciais];
+    salvarOrdemRotina(tarefasRotina);
+    salvarOrdemEssenciais(tarefasEssenciais);
+    tasksStatus = {};
+    database.ref(`/users/${usuarioAtual.id}/status`).set({});
+  }
+}
+
+// ========== RENDERIZAÇÃO COM DRAG & DROP ==========
+function renderizarTudo() {
+  renderizarLista('timelineContainer', tarefasRotina, 'rotina', true);
+  renderizarLista('extraContainer', tarefasEssenciais, 'essencial', false);
+  atualizarContador();
+}
+
+function renderizarLista(containerId, tarefas, tipo, mostraHorario) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  
+  tarefas.forEach((tarefa, idx) => {
+    const isChecked = tasksStatus[tarefa.id] === true;
+    const taskDiv = document.createElement('div');
+    taskDiv.className = `task-item ${isChecked ? 'completed-task' : ''}`;
+    taskDiv.setAttribute('data-id', tarefa.id);
+    taskDiv.setAttribute('data-tipo', tipo);
+    taskDiv.setAttribute('data-index', idx);
+    taskDiv.draggable = podeReordenar();
+    
+    // Drag handlers
+    taskDiv.addEventListener('dragstart', handleDragStart);
+    taskDiv.addEventListener('dragover', handleDragOver);
+    taskDiv.addEventListener('drop', handleDrop);
+    
+    // Handle de arrasto
+    const dragHandle = document.createElement('span');
+    dragHandle.className = 'drag-handle';
+    dragHandle.innerHTML = '⋮⋮';
+    dragHandle.style.cursor = podeReordenar() ? 'grab' : 'default';
+    
+    // Checkbox
+    const checkWrapper = document.createElement('div');
+    checkWrapper.className = 'task-check';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = isChecked;
+    checkbox.addEventListener('change', () => salvarStatus(tarefa.id, checkbox.checked));
+    const spanMark = document.createElement('span');
+    spanMark.className = 'checkmark';
+    spanMark.style.color = usuarioAtual?.cor_primaria;
+    checkWrapper.appendChild(checkbox);
+    checkWrapper.appendChild(spanMark);
+    
+    // Info
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'task-info';
+    const timeSpan = document.createElement('span');
+    timeSpan.className = mostraHorario ? 'task-time' : 'task-icon';
+    timeSpan.textContent = mostraHorario ? (tarefa.horario || '--:--') : (tarefa.icone || '⭐');
+    const descSpan = document.createElement('span');
+    descSpan.className = 'task-desc';
+    descSpan.textContent = tarefa.descricao;
+    infoDiv.appendChild(timeSpan);
+    infoDiv.appendChild(descSpan);
+    
+    // Ações (editar/deletar)
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'task-actions';
+    if (podeEditar()) {
+      const editBtn = document.createElement('button');
+      editBtn.innerHTML = '✏️';
+      editBtn.className = 'edit-btn';
+      editBtn.onclick = () => abrirModalEdicao(tipo, tarefa.id, tarefa.descricao, mostraHorario ? tarefa.horario : tarefa.icone);
+      const delBtn = document.createElement('button');
+      delBtn.innerHTML = '🗑️';
+      delBtn.className = 'delete-btn';
+      delBtn.onclick = () => deletarTarefa(tipo, tarefa.id);
+      actionsDiv.appendChild(editBtn);
+      actionsDiv.appendChild(delBtn);
+    }
+    
+    taskDiv.appendChild(dragHandle);
+    taskDiv.appendChild(checkWrapper);
+    taskDiv.appendChild(infoDiv);
+    taskDiv.appendChild(actionsDiv);
+    container.appendChild(taskDiv);
+  });
+}
+
+let dragSource = null;
+
+function handleDragStart(e) {
+  if (!podeReordenar()) return;
+  dragSource = e.target.closest('.task-item');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+  if (!podeReordenar()) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDrop(e) {
+  if (!podeReordenar()) return;
+  e.preventDefault();
+  const target = e.target.closest('.task-item');
+  if (!dragSource || !target || dragSource === target) return;
+  
+  const sourceTipo = dragSource.getAttribute('data-tipo');
+  const targetTipo = target.getAttribute('data-tipo');
+  if (sourceTipo !== targetTipo) return;
+  
+  const sourceId = dragSource.getAttribute('data-id');
+  const targetId = target.getAttribute('data-id');
+  
+  let lista = sourceTipo === 'rotina' ? [...tarefasRotina] : [...tarefasEssenciais];
+  const sourceIndex = lista.findIndex(t => t.id === sourceId);
+  const targetIndex = lista.findIndex(t => t.id === targetId);
+  
+  if (sourceIndex !== -1 && targetIndex !== -1) {
+    const [movido] = lista.splice(sourceIndex, 1);
+    lista.splice(targetIndex, 0, movido);
+    if (sourceTipo === 'rotina') {
+      tarefasRotina = lista;
+      salvarOrdemRotina(tarefasRotina);
+    } else {
+      tarefasEssenciais = lista;
+      salvarOrdemEssenciais(tarefasEssenciais);
+    }
+  }
+  dragSource = null;
+}
+
+function podeEditar() {
+  return usuarioAtual?.permissoes?.includes('editar_tudo') || true;
+}
+
+function podeReordenar() {
+  return usuarioAtual?.permissoes?.includes('reordenar_tudo') || true;
+}
+
+function atualizarContador() {
+  const total = tarefasRotina.length + tarefasEssenciais.length;
+  let concluidas = 0;
+  [...tarefasRotina, ...tarefasEssenciais].forEach(t => {
+    if (tasksStatus[t.id]) concluidas++;
+  });
+  const stats = document.getElementById('globalStats');
+  if (stats) stats.innerHTML = `✅ ${concluidas} / ${total} concluídas`;
+}
+
+// ========== MODAL ==========
+function abrirModalAdicionar() {
+  editandoId = null;
+  document.getElementById('modalTitle').innerText = 'Adicionar Tarefa';
+  document.getElementById('modalTaskDesc').value = '';
+  document.getElementById('modalTaskTime').value = '';
+  document.getElementById('taskModal').style.display = 'flex';
+}
+
+function abrirModalEdicao(tipo, id, desc, horario) {
+  editandoId = id;
+  editandoTipo = tipo;
+  document.getElementById('modalTitle').innerText = 'Editar Tarefa';
+  document.getElementById('modalTaskDesc').value = desc;
+  document.getElementById('modalTaskTime').value = horario;
+  document.getElementById('taskModal').style.display = 'flex';
+}
+
+function salvarModal() {
+  const desc = document.getElementById('modalTaskDesc').value.trim();
+  const horario = document.getElementById('modalTaskTime').value.trim();
+  const tipo = document.getElementById('modalTaskType').value;
+  
+  if (!desc) {
+    alert('Digite uma descrição!');
+    return;
+  }
+  
+  if (editandoId) {
+    editarTarefa(editandoTipo, editandoId, desc, horario);
+  } else {
+    adicionarTarefa(tipo, desc, horario);
+  }
+  fecharModal();
+}
+
+function fecharModal() {
+  document.getElementById('taskModal').style.display = 'none';
+  editandoId = null;
+}
+
+// ========== EVENTOS E INICIALIZAÇÃO ==========
+document.addEventListener('DOMContentLoaded', async () => {
+  await carregarConfig();
+  verificarLoginSalvo();
+  
+  document.getElementById('loginBtn').onclick = () => {
+    const user = document.getElementById('loginUsername').value;
+    const pass = document.getElementById('loginPassword').value;
+    fazerLogin(user, pass);
+  };
+  document.getElementById('logoutBtn').onclick = () => {
+    localStorage.removeItem('usuarioLogado');
+    location.reload();
+  };
+  document.getElementById('resetAllBtn').onclick = resetarTudo;
+  document.getElementById('addTimelineBtn').onclick = () => {
+    document.getElementById('modalTaskType').value = 'rotina';
+    abrirModalAdicionar();
+  };
+  document.getElementById('addExtraBtn').onclick = () => {
+    document.getElementById('modalTaskType').value = 'essencial';
+    abrirModalAdicionar();
+  };
+  document.getElementById('modalSaveBtn').onclick = salvarModal;
+  document.getElementById('modalCancelBtn').onclick = fecharModal;
+});
+</script>
+</body>
+</html>

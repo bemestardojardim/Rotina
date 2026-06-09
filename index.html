@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Rotina Missionária</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --primary: #2e7d5c;
+      --primary-dark: #1f5a42;
+      --primary-light: #e8f3ed;
+      --accent: #f4a261;
+      --accent-dark: #e76f51;
+      --bg: #f8f9f7;
+      --bg-alt: #edf2eb;
+      --card: #ffffff;
+      --text: #1f2a24;
+      --text-light: #5c6b64;
+      --border: #e2e8e0;
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 30px rgba(0,0,0,0.08);
+      --radius-sm: 12px;
+      --radius-md: 16px;
+      --radius-lg: 20px;
+    }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .theme-gerardo { --primary: #2e7d5c; }
+    .theme-tais { --primary: #7b5c9e; }
+    .theme-ronan { --primary: #4a7b9d; }
+    body.theme-gerardo { background: linear-gradient(180deg, #e8f3ed 0%, #d4e6d9 100%); }
+    body.theme-tais { background: linear-gradient(180deg, #f0e8f3 0%, #e4d4eb 100%); }
+    body.theme-ronan { background: linear-gradient(180deg, #e8eef3 0%, #d4dfe6 100%); }
+    .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+    .header {
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius-lg);
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      border: 1px solid var(--border);
+    }
+    .logo h1 { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+    .logo p { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+    .user-area { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .logout-btn { background: var(--accent-dark); }
+    .person-selector {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .person-selector h3 { margin-bottom: 12px; color: var(--text); font-size: 0.9rem; font-weight: 500; }
+    .person-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .person-btn {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+    .person-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .icon-btn {
+      background: transparent;
+      color: var(--text-light);
+      padding: 6px 10px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+    .icon-btn:hover { background: var(--primary-light); color: var(--primary); transform: none; }
+    .add-person-btn { background: var(--primary-light); color: var(--primary-dark); }
+    .current-person {
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .current-person span { font-weight: 500; color: var(--primary-dark); font-size: 0.85rem; }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .card-header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .card-header:hover { opacity: 0.95; }
+    .card-header .toggle-icon { font-size: 1rem; transition: transform 0.2s; }
+    .card-header .card-actions { display: flex; gap: 8px; }
+    .card-header .card-actions button {
+      background: rgba(255,255,255,0.2);
+      padding: 4px 10px;
+      font-size: 0.75rem;
+    }
+    .card-header .card-actions button:hover { background: rgba(255,255,255,0.3); transform: none; }
+    .card-content { transition: all 0.3s ease; overflow: hidden; }
+    .card-content.collapsed { display: none; }
+    .task-list { padding: 12px; max-height: 550px; overflow-y: auto; }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      margin: 6px 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: all 0.2s;
+    }
+    .task-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(46,125,92,0.1); }
+    .task-click-area { flex: 1; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+    .drag-handle { cursor: grab; font-size: 1rem; opacity: 0.4; padding: 0 4px; }
+    .drag-handle:active { cursor: grabbing; }
+    .task-check { width: 20px; height: 20px; position: relative; flex-shrink: 0; }
+    .task-check input { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; z-index: 1; }
+    .checkmark {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      background: var(--bg);
+      border-radius: 5px;
+      border: 2px solid var(--border);
+      transition: all 0.2s;
+      pointer-events: none;
+    }
+    .task-check input:checked + .checkmark { background: var(--primary); border-color: var(--primary); }
+    .checkmark:after {
+      content: "";
+      display: none;
+      position: absolute;
+      left: 5px;
+      top: 1px;
+      width: 5px;
+      height: 9px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .task-check input:checked + .checkmark:after { display: block; }
+    .task-info { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+    .task-time { background: var(--primary-light); color: var(--primary-dark); padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 600; }
+    .task-desc { font-size: 0.85rem; font-weight: 500; }
+    .completed-task .task-desc { text-decoration: line-through; color: var(--text-light); }
+    .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .task-btn { background: transparent; color: var(--text-light); padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+    .task-btn:hover { background: var(--primary-light); color: var(--primary); transform: none; }
+    .progress-section {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 10px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-light); margin-bottom: 6px; }
+    .progress-bar { background: var(--border); height: 6px; border-radius: 10px; overflow: hidden; }
+    .progress-fill { background: linear-gradient(90deg, var(--primary), #4caf8c); height: 100%; width: 0%; transition: width 0.3s; }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+    }
+    .modal-content h3 { color: var(--primary); margin-bottom: 20px; font-size: 1.2rem; }
+    input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9rem; }
+    .password-wrapper { position: relative; display: flex; align-items: center; }
+    .password-wrapper input { flex: 1; padding-right: 45px; }
+    .toggle-password { position: absolute; right: 12px; background: transparent; color: var(--text-light); padding: 0; cursor: pointer; }
+    .toggle-password:hover { background: transparent; transform: none; }
+    .add-task-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+    .add-task-input input { margin: 0; }
+    .footer { text-align: center; margin-top: 24px; padding: 12px; color: var(--text-light); font-size: 0.7rem; }
+    .main-content { display: none; }
+    .switch-view-btn { background: var(--primary-light); color: var(--primary-dark); padding: 4px 12px; font-size: 0.75rem; cursor: pointer; }
+    .pedido-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--primary);
+    }
+    .pedido-texto { flex: 1; font-size: 0.85rem; }
+    .pedido-resolvido .pedido-texto { text-decoration: line-through; opacity: 0.6; }
+    .pedido-actions { display: flex; gap: 4px; }
+    .pedido-btn { background: transparent; color: var(--text-light); padding: 4px 8px; font-size: 0.8rem; cursor: pointer; border-radius: var(--radius-sm); }
+    .pedido-btn:hover { background: var(--primary-light); color: var(--primary); }
+    .pedidos-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .add-pedido-btn { background: var(--primary-light); color: var(--primary-dark); padding: 4px 10px; font-size: 0.75rem; cursor: pointer; }
+    @media (max-width: 700px) {
+      .container { padding: 12px; }
+      .task-info { flex-direction: column; gap: 4px; align-items: flex-start; }
+      .task-item { padding: 8px 12px; }
+      .person-btn { padding: 4px 12px; font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="main-content" id="mainContent">
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <h1>🌱 Rotina</h1>
+      <p>missão • família</p>
+    </div>
+    <div class="user-area" id="userArea"></div>
+  </div>
+
+  <div id="personSelectorPanel" class="person-selector" style="display:none;">
+    <h3>👥 Selecione a pessoa:</h3>
+    <div class="person-buttons" id="personButtons"></div>
+  </div>
+
+  <div class="current-person" id="currentPersonDisplay">
+    <span>📋 <span id="currentPersonName">Carregando...</span></span>
+    <div id="viewActions"></div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-stats"><span>📊 Progresso</span><span id="statsText">0/0</span></div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- Card Horários -->
+  <div class="card" id="timelineCard">
+    <div class="card-header" id="timelineHeader">
+      <span>⏰ Horários</span>
+      <div class="card-actions" id="timelineActions"></div>
+      <span class="toggle-icon" id="timelineToggle">▼</span>
+    </div>
+    <div class="card-content" id="timelineContent">
+      <div id="timelineList" class="task-list"></div>
+      <div id="timelineAdd" class="add-task-input" style="display:none">
+        <input type="time" id="newTime" placeholder="Horário">
+        <input type="text" id="newDesc" placeholder="Tarefa">
+        <button id="confirmTimelineBtn">✓</button>
+        <button id="cancelTimelineBtn" style="background:#ccc;">✗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Essenciais -->
+  <div class="card" id="extraCard">
+    <div class="card-header" id="extraHeader">
+      <span>🌻 Essenciais</span>
+      <div class="card-actions" id="extraActions"></div>
+      <span class="toggle-icon" id="extraToggle">▼</span>
+    </div>
+    <div class="card-content" id="extraContent">
+      <div id="extraList" class="task-list"></div>
+      <div id="extraAdd" class="add-task-input" style="display:none">
+        <input type="text" id="newIcon" placeholder="🎯 Emoji">
+        <input type="text" id="newExtraDesc" placeholder="Tarefa">
+        <button id="confirmExtraBtn">✓</button>
+        <button id="cancelExtraBtn" style="background:#ccc;">✗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Pedidos -->
+  <div class="card" id="pedidosCard">
+    <div class="card-header" id="pedidosHeader">
+      <span>📝 Pedidos</span>
+      <span class="toggle-icon" id="pedidosToggle">▼</span>
+    </div>
+    <div class="card-content" id="pedidosContent">
+      <div id="pedidosList"></div>
+    </div>
+  </div>
+
+  <div class="footer">✅ Clique na tarefa para marcar</div>
+</div>
+</div>
+
+<!-- MODAL LOGIN -->
+<div id="loginModal" class="modal" style="display:flex">
+<div class="modal-content">
+  <h3>🔐 Entrar</h3>
+  <input type="text" id="loginUser" placeholder="Usuário" autocomplete="off">
+  <div class="password-wrapper">
+    <input type="password" id="loginPass" placeholder="Senha">
+    <button class="toggle-password" id="togglePassword">👁️</button>
+  </div>
+  <button id="doLogin" style="width:100%;margin-top:12px;">Entrar</button>
+  <div id="loginErrorMsg" class="login-error"></div>
+  <div class="login-info" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-light);text-align:center;">
+    <strong>Credenciais:</strong><br>
+    ronan / chefe | tais / planta | gerardo / missionario
+  </div>
+</div>
+</div>
+
+<!-- MODAL ADICIONAR USUÁRIO -->
+<div id="addUserModal" class="modal">
+<div class="modal-content">
+  <span id="closeAddUserModal" style="float:right;cursor:pointer;font-size:24px">&times;</span>
+  <h3>➕ Novo usuário</h3>
+  <input type="text" id="newUserName" placeholder="Usuário">
+  <input type="text" id="newFullName" placeholder="Nome">
+  <input type="password" id="newPass" placeholder="Senha">
+  <select id="newRole">
+    <option value="executor">Missionário</option>
+    <option value="admin">Admin</option>
+  </select>
+  <select id="newTheme"><option value="default">Padrão</option><option value="gerardo">Verde</option><option value="tais">Roxo</option><option value="ronan">Azul</option></select>
+  <button id="confirmAddUserBtn">Adicionar</button>
+</div>
+</div>
+
+<!-- MODAL EDITAR TAREFA -->
+<div id="editModal" class="modal"><div class="modal-content"><span id="closeEditModal" style="float:right;cursor:pointer;font-size:24px">&times;</span><h3>✏️ Editar</h3><input type="text" id="editTime" placeholder="Horário/Ícone"><input type="text" id="editDesc" placeholder="Descrição"><input type="hidden" id="editId"><input type="hidden" id="editType"><button id="saveEdit">Salvar</button></div></div>
+
+<script>
+// ==================== CONFIG ====================
+const STORAGE_KEY = 'rotina_sessao';
+const COLLAPSE_KEY = 'collapse_state';
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
+  authDomain: "rotina-plante.firebaseapp.com",
+  projectId: "rotina-plante",
+  storageBucket: "rotina-plante.firebasestorage.app",
+  messagingSenderId: "382389999996",
+  appId: "1:382389999996:web:d210a061cf2587ab84acf9"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ==================== DADOS PADRÃO ====================
+const DEFAULT_TIMELINE = [
+  {id:"t0",time:"06:00",desc:"Levantar e preparar"},{id:"t1",time:"06:20",desc:"Culto famíliar"},
+  {id:"t2",time:"07:00",desc:"Café da manhã"},{id:"t3",time:"07:30",desc:"Preparar"},
+  {id:"t4",time:"07:45",desc:"Sair"},{id:"t5",time:"08:00",desc:"Dar comida prós cachorros"},
+  {id:"t6",time:"08:15",desc:"Molhar a horta"},{id:"t7",time:"08:30",desc:"Molhar a grama toda"},
+  {id:"t8",time:"11:00",desc:"Molhar as plantas da Taís"},{id:"t9",time:"11:20",desc:"Fazer a lista pras mudas"},
+  {id:"t10",time:"11:40",desc:"Procurar folha de aça peixe"},{id:"t11",time:"12:00",desc:"Almoço"},
+  {id:"t12",time:"13:00",desc:"Molhar horta"},{id:"t13",time:"13:35",desc:"Podar o pomar e capinar"},
+  {id:"t14",time:"15:00",desc:"Molhar a grama toda"},{id:"t15",time:"17:00",desc:"Banho"},
+  {id:"t16",time:"17:30",desc:"Janta"},{id:"t17",time:"18:30",desc:"Fazer o culto famíliar"},
+  {id:"t18",time:"19:00",desc:"Dormir"}
+];
+const DEFAULT_EXTRA = [
+  {id:"e0",time:"🐦",desc:"Trazer os passarinhos"},{id:"e1",time:"🐟",desc:"Cuidar dos peixinhos"},
+  {id:"e2",time:"🌿",desc:"Cuidar das plantas"},{id:"e3",time:"🌙",desc:"Ferramentas do varal"},
+  {id:"e4",time:"💡",desc:"Luz da frente/trás"},{id:"e5",time:"🐜",desc:"Formigas do galinheiro"},
+  {id:"e6",time:"🌻",desc:"Sementes de girassol"},{id:"e7",time:"🍃",desc:"Folha de asa peixe"},
+  {id:"e8",time:"🔍",desc:"Identificar planta"}
+];
+
+const DEFAULT_USERS = {
+  ronan: { password: "chefe", role: "admin", theme: "ronan", name: "Ronan", hasOwnTasks: false },
+  tais: { password: "planta", role: "admin", theme: "tais", name: "Taís", hasOwnTasks: false },
+  gerardo: { password: "missionario", role: "admin", theme: "gerardo", name: "Gerardo", hasOwnTasks: true }
+};
+
+// ==================== ESTADO GLOBAL ====================
+const State = {
+  currentUser: null,
+  currentViewingPerson: null,
+  tasksData: {},
+  pedidosData: {},
+  users: {},
+  sortable: { timeline: null, extra: null },
+  collapseState: { timeline: false, extra: false, pedidos: false }
+};
+
+// ==================== HELPERS ====================
+const clone = (obj) => structuredClone(obj);
+const generateId = (prefix) => `${prefix}${Date.now()}${Math.random().toString(36).substr(2,6)}`;
+
+// ==================== PERSISTÊNCIA ====================
+function saveToLocalStorage() {
+  const dataToSave = {
+    users: State.users,
+    tasksData: State.tasksData,
+    pedidosData: State.pedidosData
+  };
+  localStorage.setItem('rotina_backup', JSON.stringify(dataToSave));
+}
+
+function loadFromLocalStorage() {
+  const saved = localStorage.getItem('rotina_backup');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      if (data.users) State.users = data.users;
+      if (data.tasksData) State.tasksData = data.tasksData;
+      if (data.pedidosData) State.pedidosData = data.pedidosData;
+      return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+async function loadPersonTasks(person) {
+  return new Promise((resolve) => {
+    if (!State.tasksData[person]) {
+      State.tasksData[person] = { 
+        timeline: person === 'gerardo' ? clone(DEFAULT_TIMELINE) : [], 
+        extra: person === 'gerardo' ? clone(DEFAULT_EXTRA) : [], 
+        status: {} 
+      };
+    }
+    db.ref(`/tasks/${person}/timeline`).once('value', snap => {
+      const timeline = snap.val();
+      if (timeline) State.tasksData[person].timeline = timeline;
+      db.ref(`/tasks/${person}/extra`).once('value', snap2 => {
+        const extra = snap2.val();
+        if (extra) State.tasksData[person].extra = extra;
+        db.ref(`/tasks/${person}/status`).once('value', snap3 => {
+          const status = snap3.val();
+          if (status) State.tasksData[person].status = status;
+          saveToLocalStorage();
+          resolve();
+        });
+      });
+    });
+  });
+}
+
+async function loadPersonPedidos(person) {
+  return new Promise((resolve) => {
+    if (!State.pedidosData[person]) State.pedidosData[person] = [];
+    db.ref(`/pedidos/${person}`).once('value', snap => {
+      const pedidos = snap.val();
+      if (pedidos) State.pedidosData[person] = pedidos;
+      saveToLocalStorage();
+      resolve();
+    });
+  });
+}
+
+function savePersonTimeline(person) { 
+  if (State.tasksData[person]) db.ref(`/tasks/${person}/timeline`).set(State.tasksData[person].timeline);
+  saveToLocalStorage();
+}
+function savePersonExtra(person) { 
+  if (State.tasksData[person]) db.ref(`/tasks/${person}/extra`).set(State.tasksData[person].extra);
+  saveToLocalStorage();
+}
+function savePersonStatus(person, id, val) { 
+  if (State.tasksData[person]) {
+    State.tasksData[person].status[id] = val;
+    db.ref(`/tasks/${person}/status/${id}`).set(val);
+    saveToLocalStorage();
+  }
+}
+function savePersonPedidos(person) { 
+  if (State.pedidosData[person]) db.ref(`/pedidos/${person}`).set(State.pedidosData[person]);
+  saveToLocalStorage();
+}
+
+function saveUsers() { 
+  const custom = {}; 
+  Object.keys(State.users).forEach(k => { 
+    if (!DEFAULT_USERS[k]) custom[k] = State.users[k]; 
+  }); 
+  db.ref('/users').set(custom);
+  saveToLocalStorage();
+}
+
+async function loadUsers() {
+  return new Promise((resolve) => {
+    if (!loadFromLocalStorage() || !State.users || Object.keys(State.users).length === 0) {
+      State.users = clone(DEFAULT_USERS);
+    }
+    db.ref('/users').once('value', snap => {
+      const data = snap.val() || {};
+      Object.keys(data).forEach(k => { if (!State.users[k]) State.users[k] = data[k]; });
+      saveToLocalStorage();
+      resolve();
+    });
+  });
+}
+
+// ==================== CRUD TAREFAS ====================
+function addTask(person, type, time, desc) {
+  if (!State.tasksData[person]) return;
+  const arr = type === 'timeline' ? State.tasksData[person].timeline : State.tasksData[person].extra;
+  arr.push({ id: generateId(type === 'timeline' ? 't' : 'e'), time, desc });
+  type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+}
+
+function editTask(person, type, id, time, desc) {
+  if (!State.tasksData[person]) return;
+  const arr = type === 'timeline' ? State.tasksData[person].timeline : State.tasksData[person].extra;
+  const task = arr.find(t => t.id === id);
+  if (task) { task.time = time; task.desc = desc; type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person); }
+}
+
+function deleteTask(person, type, id) {
+  if (!State.tasksData[person]) return;
+  if (type === 'timeline') State.tasksData[person].timeline = State.tasksData[person].timeline.filter(t => t.id !== id);
+  else State.tasksData[person].extra = State.tasksData[person].extra.filter(t => t.id !== id);
+  type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+  delete State.tasksData[person].status[id];
+  db.ref(`/tasks/${person}/status/${id}`).remove();
+}
+
+function duplicateTask(person, type, id) {
+  if (!State.tasksData[person]) return;
+  const arr = type === 'timeline' ? State.tasksData[person].timeline : State.tasksData[person].extra;
+  const task = arr.find(t => t.id === id);
+  if (task) {
+    arr.push({ ...clone(task), id: generateId(type === 'timeline' ? 't' : 'e'), desc: task.desc + ' (cópia)' });
+    type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+  }
+}
+
+function toggleStatus(person, id, checked) {
+  if (!State.tasksData[person]) return;
+  State.tasksData[person].status[id] = checked;
+  db.ref(`/tasks/${person}/status/${id}`).set(checked);
+  updateProgress();
+  saveToLocalStorage();
+}
+
+// ==================== CRUD PEDIDOS ====================
+function addPedido(person, texto) {
+  if (!State.pedidosData[person]) State.pedidosData[person] = [];
+  const novoPedido = { id: generateId('p'), texto: texto.trim(), resolvido: false };
+  State.pedidosData[person].push(novoPedido);
+  savePersonPedidos(person);
+  renderPedidos();
+}
+
+function togglePedidoResolvido(person, pedidoId, resolvido) {
+  if (!State.pedidosData[person]) return;
+  const pedido = State.pedidosData[person].find(p => p.id === pedidoId);
+  if (pedido) { pedido.resolvido = resolvido; savePersonPedidos(person); renderPedidos(); }
+}
+
+function deletePedido(person, pedidoId) {
+  if (!State.pedidosData[person]) return;
+  State.pedidosData[person] = State.pedidosData[person].filter(p => p.id !== pedidoId);
+  savePersonPedidos(person);
+  renderPedidos();
+}
+
+// ==================== RENDER ====================
+function updateProgress() {
+  if (!State.currentViewingPerson || !State.tasksData[State.currentViewingPerson]) return;
+  const data = State.tasksData[State.currentViewingPerson];
+  const allTasks = [...data.timeline, ...data.extra];
+  const completed = allTasks.filter(t => data.status[t.id]).length;
+  const percent = allTasks.length ? (completed / allTasks.length) * 100 : 0;
+  const progressFill = document.getElementById('progressFill');
+  const statsText = document.getElementById('statsText');
+  if (progressFill) progressFill.style.width = `${percent}%`;
+  if (statsText) statsText.innerHTML = `${completed}/${allTasks.length}`;
+}
+
+function renderAll() {
+  if (!State.currentViewingPerson || !State.tasksData[State.currentViewingPerson]) return;
+  renderTasks(document.getElementById('timelineList'), State.tasksData[State.currentViewingPerson].timeline, true);
+  renderTasks(document.getElementById('extraList'), State.tasksData[State.currentViewingPerson].extra, false);
+  updateProgress();
+  renderPedidos();
+  renderCardActions();
+}
+
+function renderCardActions() {
+  const timelineActions = document.getElementById('timelineActions');
+  const extraActions = document.getElementById('extraActions');
+  const canEdit = State.currentUser?.role === 'admin' || State.currentUser?.username === State.currentViewingPerson;
+  
+  if (timelineActions) {
+    timelineActions.innerHTML = '';
+    if (canEdit) {
+      const addBtn = document.createElement('button');
+      addBtn.innerHTML = '+';
+      addBtn.title = 'Adicionar tarefa';
+      addBtn.onclick = (e) => {
+        e.stopPropagation();
+        const addDiv = document.getElementById('timelineAdd');
+        if (addDiv) addDiv.style.display = addDiv.style.display === 'none' ? 'flex' : 'none';
+      };
+      const resetBtn = document.createElement('button');
+      resetBtn.innerHTML = '↺';
+      resetBtn.title = 'Restaurar rotina padrão';
+      resetBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm('Restaurar rotina original?')) {
+          State.tasksData[State.currentViewingPerson].timeline = clone(DEFAULT_TIMELINE);
+          savePersonTimeline(State.currentViewingPerson);
+          renderAll();
+        }
+      };
+      timelineActions.appendChild(addBtn);
+      timelineActions.appendChild(resetBtn);
+    }
+  }
+  
+  if (extraActions) {
+    extraActions.innerHTML = '';
+    if (canEdit) {
+      const addBtn = document.createElement('button');
+      addBtn.innerHTML = '+';
+      addBtn.title = 'Adicionar tarefa';
+      addBtn.onclick = (e) => {
+        e.stopPropagation();
+        const addDiv = document.getElementById('extraAdd');
+        if (addDiv) addDiv.style.display = addDiv.style.display === 'none' ? 'flex' : 'none';
+      };
+      const resetBtn = document.createElement('button');
+      resetBtn.innerHTML = '↺';
+      resetBtn.title = 'Restaurar essenciais padrão';
+      resetBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm('Restaurar essenciais originais?')) {
+          State.tasksData[State.currentViewingPerson].extra = clone(DEFAULT_EXTRA);
+          savePersonExtra(State.currentViewingPerson);
+          renderAll();
+        }
+      };
+      extraActions.appendChild(addBtn);
+      extraActions.appendChild(resetBtn);
+    }
+  }
+}
+
+function renderPedidos() {
+  const container = document.getElementById('pedidosList');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  const isAdmin = State.currentUser?.role === 'admin';
+  const currentViewing = State.currentViewingPerson;
+  const currentUserIsOwner = State.currentUser?.username === currentViewing;
+  const podeAdicionarPedido = currentUserIsOwner && State.users[currentViewing]?.hasOwnTasks !== false;
+  const podeResolverPedido = isAdmin;
+  
+  // Mostrar pedidos apenas da pessoa atual
+  const pedidos = State.pedidosData[currentViewing] || [];
+  
+  if (pedidos.length === 0 && !podeAdicionarPedido) {
+    const emptyDiv = document.createElement('div');
+    emptyDiv.style.padding = '16px';
+    emptyDiv.style.textAlign = 'center';
+    emptyDiv.style.color = 'var(--text-light)';
+    emptyDiv.style.fontSize = '0.8rem';
+    emptyDiv.innerHTML = 'Nenhum pedido ainda. Clique no "+" para adicionar.';
+    container.appendChild(emptyDiv);
+  }
+  
+  const pessoaDiv = document.createElement('div');
+  pessoaDiv.style.marginBottom = '16px';
+  
+  const headerDiv = document.createElement('div');
+  headerDiv.className = 'pedidos-header';
+  headerDiv.innerHTML = `<strong style="color:var(--primary);">${State.users[currentViewing]?.name || currentViewing}</strong>`;
+  
+  if (podeAdicionarPedido) {
+    const addBtn = document.createElement('button');
+    addBtn.innerHTML = '+';
+    addBtn.className = 'add-pedido-btn';
+    addBtn.style.background = 'var(--primary-light)';
+    addBtn.style.color = 'var(--primary-dark)';
+    addBtn.style.padding = '4px 10px';
+    addBtn.style.borderRadius = 'var(--radius-sm)';
+    addBtn.style.cursor = 'pointer';
+    addBtn.onclick = () => {
+      const novoTexto = prompt('Digite o pedido:');
+      if (novoTexto && novoTexto.trim()) addPedido(currentViewing, novoTexto);
+    };
+    headerDiv.appendChild(addBtn);
+  }
+  pessoaDiv.appendChild(headerDiv);
+  
+  pedidos.forEach(pedido => {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = `pedido-item ${pedido.resolvido ? 'pedido-resolvido' : ''}`;
+    itemDiv.innerHTML = `
+      <div class="pedido-texto">${pedido.texto}</div>
+      <div class="pedido-actions">
+        ${podeResolverPedido ? `<button class="pedido-btn" data-resolver="${pedido.id}">${pedido.resolvido ? '↺' : '✓'}</button>` : ''}
+        ${podeResolverPedido ? `<button class="pedido-btn" data-deletar="${pedido.id}">🗑️</button>` : ''}
+      </div>
+    `;
+    const resolverBtn = itemDiv.querySelector('[data-resolver]');
+    if (resolverBtn) resolverBtn.onclick = () => togglePedidoResolvido(currentViewing, pedido.id, !pedido.resolvido);
+    const deletarBtn = itemDiv.querySelector('[data-deletar]');
+    if (deletarBtn) deletarBtn.onclick = () => deletePedido(currentViewing, pedido.id);
+    pessoaDiv.appendChild(itemDiv);
+  });
+  
+  container.appendChild(pessoaDiv);
+}
+
+function createActionButtons(person, taskId, isTimeline, canEdit) {
+  const actions = document.createElement('div');
+  actions.className = 'task-actions';
+  
+  const editBtn = document.createElement('button');
+  editBtn.innerHTML = '✏️'; editBtn.className = 'task-btn';
+  editBtn.title = 'Editar';
+  editBtn.onclick = (e) => {
+    e.stopPropagation();
+    const task = (isTimeline ? State.tasksData[person].timeline : State.tasksData[person].extra).find(t => t.id === taskId);
+    if (task) {
+      document.getElementById('editId').value = task.id;
+      document.getElementById('editType').value = isTimeline ? 'timeline' : 'extra';
+      document.getElementById('editTime').value = task.time;
+      document.getElementById('editDesc').value = task.desc;
+      document.getElementById('editModal').style.display = 'flex';
+    }
+  };
+  
+  const dupBtn = document.createElement('button');
+  dupBtn.innerHTML = '📋'; dupBtn.className = 'task-btn';
+  dupBtn.title = 'Duplicar';
+  dupBtn.onclick = (e) => { e.stopPropagation(); duplicateTask(person, isTimeline ? 'timeline' : 'extra', taskId); renderAll(); };
+  
+  const delBtn = document.createElement('button');
+  delBtn.innerHTML = '🗑️'; delBtn.className = 'task-btn';
+  delBtn.title = 'Apagar';
+  delBtn.onclick = (e) => { e.stopPropagation(); if (confirm('Apagar esta tarefa?')) { deleteTask(person, isTimeline ? 'timeline' : 'extra', taskId); renderAll(); } };
+  
+  if (canEdit) {
+    actions.appendChild(editBtn);
+    actions.appendChild(dupBtn);
+    actions.appendChild(delBtn);
+  }
+  return actions;
+}
+
+function createTaskElement(person, task, isTimeline, canEdit) {
+  const checked = State.tasksData[person]?.status[task.id] || false;
+  const div = document.createElement('div');
+  div.className = `task-item ${checked ? 'completed-task' : ''}`;
+  div.setAttribute('data-id', task.id);
+  
+  if (canEdit) { 
+    const drag = document.createElement('span'); 
+    drag.className = 'drag-handle'; 
+    drag.innerHTML = '⋮⋮'; 
+    drag.title = 'Arraste para reordenar';
+    div.appendChild(drag); 
+  }
+  
+  const clickArea = document.createElement('div'); 
+  clickArea.className = 'task-click-area';
+  
+  const checkWrap = document.createElement('div'); 
+  checkWrap.className = 'task-check';
+  const cb = document.createElement('input'); 
+  cb.type = 'checkbox'; 
+  cb.checked = checked;
+  cb.onchange = (e) => { e.stopPropagation(); toggleStatus(person, task.id, cb.checked); };
+  const mark = document.createElement('span'); 
+  mark.className = 'checkmark';
+  checkWrap.appendChild(cb); 
+  checkWrap.appendChild(mark);
+  
+  const info = document.createElement('div'); 
+  info.className = 'task-info';
+  const timeSpan = document.createElement('span'); 
+  timeSpan.className = 'task-time'; 
+  timeSpan.textContent = task.time;
+  const descSpan = document.createElement('span'); 
+  descSpan.className = 'task-desc'; 
+  descSpan.textContent = task.desc;
+  info.appendChild(timeSpan); 
+  info.appendChild(descSpan);
+  
+  clickArea.appendChild(checkWrap); 
+  clickArea.appendChild(info);
+  clickArea.onclick = (e) => { e.stopPropagation(); cb.click(); };
+  div.appendChild(clickArea);
+  
+  const actionButtons = createActionButtons(person, task.id, isTimeline, canEdit);
+  if (actionButtons.children.length > 0) div.appendChild(actionButtons);
+  
+  return div;
+}
+
+function renderTasks(container, tasks, isTimeline) {
+  if (!container || !State.currentViewingPerson) return;
+  container.innerHTML = '';
+  const person = State.currentViewingPerson;
+  const canEdit = State.currentUser?.role === 'admin' || State.currentUser?.username === person;
+  tasks.forEach(task => container.appendChild(createTaskElement(person, task, isTimeline, canEdit)));
+  
+  if (State.sortable[isTimeline ? 'timeline' : 'extra']) State.sortable[isTimeline ? 'timeline' : 'extra'].destroy();
+  if (canEdit) {
+    State.sortable[isTimeline ? 'timeline' : 'extra'] = new Sortable(container, {
+      handle: '.drag-handle', 
+      animation: 150,
+      onEnd: () => {
+        const newOrder = [];
+        container.querySelectorAll('.task-item').forEach(item => {
+          const id = item.getAttribute('data-id');
+          const task = tasks.find(t => t.id === id);
+          if (task) newOrder.push(task);
+        });
+        if (newOrder.length === tasks.length) {
+          if (isTimeline) { State.tasksData[person].timeline = newOrder; savePersonTimeline(person); }
+          else { State.tasksData[person].extra = newOrder; savePersonExtra(person); }
+        }
+      }
+    });
+  }
+}
+
+// ==================== SELEÇÃO DE PESSOAS ====================
+function renderPersonSelector() {
+  const container = document.getElementById('personButtons');
+  if (!container) return;
+  container.innerHTML = '';
+  const allPersons = Object.keys(State.users).filter(p => State.users[p].hasOwnTasks !== false);
+  allPersons.forEach(person => {
+    const btn = document.createElement('button');
+    btn.className = `person-btn ${State.currentViewingPerson === person ? 'active' : ''}`;
+    btn.textContent = State.users[person]?.name || person;
+    btn.onclick = () => switchToPerson(person);
+    container.appendChild(btn);
+    
+    if (!DEFAULT_USERS[person] && State.currentUser?.role === 'admin') {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'icon-btn';
+      delBtn.innerHTML = '🗑️';
+      delBtn.title = `Apagar ${State.users[person]?.name || person}`;
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        UserActions.delete(person);
+      };
+      container.appendChild(delBtn);
+    }
+  });
+  
+  if (State.currentUser?.role === 'admin') {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'icon-btn add-person-btn';
+    addBtn.innerHTML = '+';
+    addBtn.title = 'Adicionar pessoa';
+    addBtn.onclick = () => document.getElementById('addUserModal').style.display = 'flex';
+    container.appendChild(addBtn);
+  }
+}
+
+async function switchToPerson(person) {
+  await loadPersonTasks(person);
+  await loadPersonPedidos(person);
+  State.currentViewingPerson = person;
+  renderPersonSelector();
+  const nameSpan = document.getElementById('currentPersonName');
+  if (nameSpan) nameSpan.textContent = State.users[person]?.name || person;
+  renderAll();
+}
+
+function switchToOwnTasks() {
+  if (State.currentUser?.username && State.users[State.currentUser.username]?.hasOwnTasks !== false) {
+    switchToPerson(State.currentUser.username);
+  }
+}
+
+// ==================== USUÁRIOS ====================
+const UserActions = {
+  add(user, name, pass, role, theme) {
+    if (State.users[user]) { alert('Usuário já existe'); return false; }
+    const hasOwnTasks = role === 'executor';
+    State.users[user] = { password: pass, role, theme, name, hasOwnTasks };
+    saveUsers();
+    State.tasksData[user] = { timeline: [], extra: [], status: {} };
+    State.pedidosData[user] = [];
+    db.ref(`/tasks/${user}/timeline`).set([]);
+    db.ref(`/tasks/${user}/extra`).set([]);
+    db.ref(`/pedidos/${user}`).set([]);
+    saveToLocalStorage();
+    if (State.currentUser?.role === 'admin') renderPersonSelector();
+    alert('✅ Usuário adicionado!');
+    return true;
+  },
+  delete(user) {
+    if (user === State.currentUser?.username) { alert('Não pode excluir a si mesmo'); return; }
+    if (DEFAULT_USERS[user]) { alert('Usuário padrão não pode ser excluído'); return; }
+    delete State.users[user];
+    saveUsers();
+    delete State.tasksData[user];
+    delete State.pedidosData[user];
+    db.ref(`/tasks/${user}`).remove();
+    db.ref(`/pedidos/${user}`).remove();
+    saveToLocalStorage();
+    if (State.currentViewingPerson === user) switchToOwnTasks();
+    renderPersonSelector();
+    alert('✅ Usuário removido!');
+  },
+  logout() { 
+    State.currentUser = null; 
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload(); 
+  },
+  switchTo(user) {
+    const u = State.users[user];
+    if (!u) return;
+    State.currentUser = { username: user, role: u.role, theme: u.theme, name: u.name };
+    document.body.className = `theme-${u.theme}`;
+    const userBadge = document.getElementById('userBadge');
+    if (userBadge) userBadge.innerHTML = `👤 ${u.name}`;
+    
+    const isAdmin = u.role === 'admin';
+    const hasOwnTasks = u.hasOwnTasks === true;
+    const personSelectorPanel = document.getElementById('personSelectorPanel');
+    const viewActions = document.getElementById('viewActions');
+    
+    if (isAdmin) {
+      if (personSelectorPanel) personSelectorPanel.style.display = 'block';
+      if (viewActions) {
+        if (hasOwnTasks) {
+          viewActions.innerHTML = `<button id="backToMyTasks" class="switch-view-btn">📋 Minhas</button>`;
+          const backBtn = document.getElementById('backToMyTasks');
+          if (backBtn) backBtn.addEventListener('click', () => switchToOwnTasks());
+        } else {
+          viewActions.innerHTML = '';
+        }
+      }
+      renderPersonSelector();
+      if (hasOwnTasks) {
+        switchToPerson(user);
+      } else if (Object.keys(State.users).filter(p => State.users[p].hasOwnTasks !== false).length > 0) {
+        const firstPerson = Object.keys(State.users).find(p => State.users[p].hasOwnTasks !== false);
+        if (firstPerson) switchToPerson(firstPerson);
+      }
+    } else {
+      if (personSelectorPanel) personSelectorPanel.style.display = 'none';
+      if (viewActions) viewActions.innerHTML = '';
+      switchToPerson(user);
+    }
+    const mainContent = document.getElementById('mainContent');
+    const loginModal = document.getElementById('loginModal');
+    if (mainContent) mainContent.style.display = 'block';
+    if (loginModal) loginModal.style.display = 'none';
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ username: user, timestamp: Date.now() }));
+  }
+};
+
+// ==================== LOGIN ====================
+function doLogin() {
+  const user = document.getElementById('loginUser').value.toLowerCase().trim();
+  const pass = document.getElementById('loginPass').value;
+  const u = State.users[user];
+  const errorMsg = document.getElementById('loginErrorMsg');
+  
+  if (u && u.password === pass) {
+    UserActions.switchTo(user);
+  } else {
+    if (errorMsg) errorMsg.innerHTML = '❌ Usuário ou senha inválidos!';
+  }
+}
+
+// ==================== COLLAPSE ====================
+function loadCollapseState() {
+  const saved = localStorage.getItem(COLLAPSE_KEY);
+  if (saved) {
+    try {
+      State.collapseState = JSON.parse(saved);
+    } catch(e) {}
+  }
+  const timelineContent = document.getElementById('timelineContent');
+  const extraContent = document.getElementById('extraContent');
+  const pedidosContent = document.getElementById('pedidosContent');
+  const timelineToggle = document.getElementById('timelineToggle');
+  const extraToggle = document.getElementById('extraToggle');
+  const pedidosToggle = document.getElementById('pedidosToggle');
+  
+  if (timelineContent) timelineContent.classList.toggle('collapsed', State.collapseState.timeline);
+  if (extraContent) extraContent.classList.toggle('collapsed', State.collapseState.extra);
+  if (pedidosContent) pedidosContent.classList.toggle('collapsed', State.collapseState.pedidos);
+  if (timelineToggle) timelineToggle.textContent = State.collapseState.timeline ? '▶' : '▼';
+  if (extraToggle) extraToggle.textContent = State.collapseState.extra ? '▶' : '▼';
+  if (pedidosToggle) pedidosToggle.textContent = State.collapseState.pedidos ? '▶' : '▼';
+}
+
+function saveCollapseState() {
+  localStorage.setItem(COLLAPSE_KEY, JSON.stringify(State.collapseState));
+}
+
+function setupCollapsible() {
+  const timelineHeader = document.getElementById('timelineHeader');
+  const extraHeader = document.getElementById('extraHeader');
+  const pedidosHeader = document.getElementById('pedidosHeader');
+  const timelineContent = document.getElementById('timelineContent');
+  const extraContent = document.getElementById('extraContent');
+  const pedidosContent = document.getElementById('pedidosContent');
+  const timelineToggle = document.getElementById('timelineToggle');
+  const extraToggle = document.getElementById('extraToggle');
+  const pedidosToggle = document.getElementById('pedidosToggle');
+  
+  if (timelineHeader) {
+    timelineHeader.addEventListener('click', (e) => {
+      if (e.target.closest('.card-actions')) return;
+      State.collapseState.timeline = !State.collapseState.timeline;
+      if (timelineContent) timelineContent.classList.toggle('collapsed', State.collapseState.timeline);
+      if (timelineToggle) timelineToggle.textContent = State.collapseState.timeline ? '▶' : '▼';
+      saveCollapseState();
+    });
+  }
+  if (extraHeader) {
+    extraHeader.addEventListener('click', (e) => {
+      if (e.target.closest('.card-actions')) return;
+      State.collapseState.extra = !State.collapseState.extra;
+      if (extraContent) extraContent.classList.toggle('collapsed', State.collapseState.extra);
+      if (extraToggle) extraToggle.textContent = State.collapseState.extra ? '▶' : '▼';
+      saveCollapseState();
+    });
+  }
+  if (pedidosHeader) {
+    pedidosHeader.addEventListener('click', () => {
+      State.collapseState.pedidos = !State.collapseState.pedidos;
+      if (pedidosContent) pedidosContent.classList.toggle('collapsed', State.collapseState.pedidos);
+      if (pedidosToggle) pedidosToggle.textContent = State.collapseState.pedidos ? '▶' : '▼';
+      saveCollapseState();
+    });
+  }
+}
+
+// ==================== SETUP ====================
+function setupUI() {
+  const userArea = document.getElementById('userArea');
+  if (userArea) {
+    userArea.innerHTML = `<span id="userBadge"></span><button class="logout-btn" id="logoutBtn">🚪</button>`;
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.addEventListener('click', () => UserActions.logout());
+  }
+  loadCollapseState();
+  setupCollapsible();
+}
+
+function setupEventListeners() {
+  const doLoginBtn = document.getElementById('doLogin');
+  if (doLoginBtn) doLoginBtn.addEventListener('click', doLogin);
+  
+  const loginPass = document.getElementById('loginPass');
+  const loginUser = document.getElementById('loginUser');
+  if (loginPass) loginPass.addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+  if (loginUser) loginUser.addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+  
+  const togglePassword = document.getElementById('togglePassword');
+  if (togglePassword) {
+    togglePassword.addEventListener('click', () => {
+      const p = document.getElementById('loginPass');
+      if (p) p.type = p.type === 'password' ? 'text' : 'password';
+    });
+  }
+  
+  const closeAddUserModal = document.getElementById('closeAddUserModal');
+  if (closeAddUserModal) closeAddUserModal.addEventListener('click', () => document.getElementById('addUserModal').style.display = 'none');
+  
+  const closeEditModal = document.getElementById('closeEditModal');
+  if (closeEditModal) closeEditModal.addEventListener('click', () => document.getElementById('editModal').style.display = 'none');
+  
+  const saveEdit = document.getElementById('saveEdit');
+  if (saveEdit) {
+    saveEdit.addEventListener('click', () => {
+      const type = document.getElementById('editType').value;
+      const id = document.getElementById('editId').value;
+      const time = document.getElementById('editTime').value;
+      const desc = document.getElementById('editDesc').value;
+      if (desc && State.currentViewingPerson) { 
+        editTask(State.currentViewingPerson, type, id, time, desc); 
+        renderAll(); 
+        document.getElementById('editModal').style.display = 'none'; 
+      }
+    });
+  }
+  
+  const confirmTimelineBtn = document.getElementById('confirmTimelineBtn');
+  if (confirmTimelineBtn) {
+    confirmTimelineBtn.addEventListener('click', () => {
+      const time = document.getElementById('newTime')?.value;
+      const desc = document.getElementById('newDesc')?.value;
+      if (time && desc && State.currentViewingPerson) { 
+        addTask(State.currentViewingPerson, 'timeline', time, desc); 
+        renderAll(); 
+        document.getElementById('newTime').value = ''; 
+        document.getElementById('newDesc').value = ''; 
+        document.getElementById('timelineAdd').style.display = 'none'; 
+      } else alert('Preencha todos os campos');
+    });
+  }
+  
+  const cancelTimelineBtn = document.getElementById('cancelTimelineBtn');
+  if (cancelTimelineBtn) cancelTimelineBtn.addEventListener('click', () => document.getElementById('timelineAdd').style.display = 'none');
+  
+  const confirmExtraBtn = document.getElementById('confirmExtraBtn');
+  if (confirmExtraBtn) {
+    confirmExtraBtn.addEventListener('click', () => {
+      const icon = document.getElementById('newIcon')?.value || '📌';
+      const desc = document.getElementById('newExtraDesc')?.value;
+      if (desc && State.currentViewingPerson) { 
+        addTask(State.currentViewingPerson, 'extra', icon, desc); 
+        renderAll(); 
+        document.getElementById('newIcon').value = ''; 
+        document.getElementById('newExtraDesc').value = ''; 
+        document.getElementById('extraAdd').style.display = 'none'; 
+      } else alert('Digite a descrição');
+    });
+  }
+  
+  const cancelExtraBtn = document.getElementById('cancelExtraBtn');
+  if (cancelExtraBtn) cancelExtraBtn.addEventListener('click', () => document.getElementById('extraAdd').style.display = 'none');
+  
+  const confirmAddUserBtn = document.getElementById('confirmAddUserBtn');
+  if (confirmAddUserBtn) {
+    confirmAddUserBtn.addEventListener('click', () => {
+      const u = document.getElementById('newUserName')?.value.toLowerCase().trim();
+      const n = document.getElementById('newFullName')?.value;
+      const p = document.getElementById('newPass')?.value;
+      const r = document.getElementById('newRole')?.value;
+      const t = document.getElementById('newTheme')?.value;
+      if (u && n && p) {
+        UserActions.add(u, n, p, r, t);
+        document.getElementById('addUserModal').style.display = 'none';
+        document.getElementById('newUserName').value = '';
+        document.getElementById('newFullName').value = '';
+        document.getElementById('newPass').value = '';
+      } else alert('Preencha todos os campos');
+    });
+  }
+  
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+  });
+}
+
+// ==================== INIT ====================
+async function init() {
+  setupUI();
+  await loadUsers();
+  setupEventListeners();
+  for (const person of Object.keys(State.users)) { 
+    await loadPersonTasks(person);
+    await loadPersonPedidos(person);
+  }
+  const savedUser = localStorage.getItem(STORAGE_KEY);
+  if (savedUser) {
+    try {
+      const { username, timestamp } = JSON.parse(savedUser);
+      if (Date.now() - timestamp < 30 * 24 * 60 * 60 * 1000 && State.users[username]) {
+        UserActions.switchTo(username);
+      } else {
+        document.getElementById('loginModal').style.display = 'flex';
+      }
+    } catch(e) {
+      document.getElementById('loginModal').style.display = 'flex';
+    }
+  } else {
+    document.getElementById('loginModal').style.display = 'flex';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

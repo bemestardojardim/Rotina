@@ -4,6 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Rotina Missionária</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    %22name%22:%22Rotina Mission%C3%A1ria%22,
+    %22short_name%22:%22Rotina%22,
+    %22start_url%22:%22.%22,
+    %22display%22:%22standalone%22,
+    %22theme_color%22:%22%232e7d5c%22,
+    %22background_color%22:%22%23f8f9f7%22,
+    %22icons%22:[
+      {%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232e7d5c'/%3E%3Ctext x='50' y='67' font-size='50' text-anchor='middle' fill='white' font-family='Arial'%3E🌱%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22%7D
+    ]
+  }">
+  
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -72,6 +86,10 @@
     }
     button:hover { transform: translateY(-1px); filter: brightness(1.05); }
     .logout-btn { background: var(--accent-dark); }
+    .horta-btn { background: #2196F3; display: inline-flex; align-items: center; gap: 6px; }
+    .horta-btn:hover { background: #0b7dda; }
+    .install-btn { background: var(--primary-dark); font-size: 0.7rem; padding: 6px 12px; }
+    .change-password-btn { background: #2196F3; font-size: 0.7rem; padding: 6px 12px; }
     .person-selector {
       background: var(--card);
       border-radius: var(--radius-lg);
@@ -269,11 +287,37 @@
       margin-bottom: 12px;
     }
     .add-pedido-btn { background: var(--primary-light); color: var(--primary-dark); padding: 4px 10px; font-size: 0.75rem; cursor: pointer; }
+    
+    /* RESPONSIVO - BOTÕES VISÍVEIS NO MOBILE */
     @media (max-width: 700px) {
       .container { padding: 12px; }
       .task-info { flex-direction: column; gap: 4px; align-items: flex-start; }
       .task-item { padding: 8px 12px; }
       .person-btn { padding: 4px 12px; font-size: 0.75rem; }
+      
+      /* Botões visíveis e organizados no mobile */
+      .install-btn, 
+      .change-password-btn, 
+      .horta-btn {
+        display: inline-flex;
+        font-size: 0.7rem;
+        padding: 5px 10px;
+      }
+      
+      .user-area {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      
+      .card-header {
+        padding: 10px 16px;
+        font-size: 0.85rem;
+      }
+      
+      .card-actions button {
+        padding: 3px 8px;
+        font-size: 0.7rem;
+      }
     }
   </style>
 </head>
@@ -304,7 +348,6 @@
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
   </div>
 
-  <!-- Card Horários -->
   <div class="card" id="timelineCard">
     <div class="card-header" id="timelineHeader">
       <span>⏰ Horários</span>
@@ -322,7 +365,6 @@
     </div>
   </div>
 
-  <!-- Card Essenciais -->
   <div class="card" id="extraCard">
     <div class="card-header" id="extraHeader">
       <span>🌻 Essenciais</span>
@@ -340,7 +382,6 @@
     </div>
   </div>
 
-  <!-- Card Pedidos -->
   <div class="card" id="pedidosCard">
     <div class="card-header" id="pedidosHeader">
       <span>📝 Pedidos</span>
@@ -368,7 +409,7 @@
   <div id="loginErrorMsg" class="login-error"></div>
   <div class="login-info" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text-light);text-align:center;">
     <strong>Credenciais:</strong><br>
-    ronan / chefe | tais / planta | gerardo / missionario
+    ronan / plante | tais / planta | gerardo / missionario
   </div>
 </div>
 </div>
@@ -393,12 +434,49 @@
 <!-- MODAL EDITAR TAREFA -->
 <div id="editModal" class="modal"><div class="modal-content"><span id="closeEditModal" style="float:right;cursor:pointer;font-size:24px">&times;</span><h3>✏️ Editar</h3><input type="text" id="editTime" placeholder="Horário/Ícone"><input type="text" id="editDesc" placeholder="Descrição"><input type="hidden" id="editId"><input type="hidden" id="editType"><button id="saveEdit">Salvar</button></div></div>
 
+<!-- MODAL ALTERAR SENHA -->
+<div id="changePasswordModal" class="modal">
+<div class="modal-content">
+  <span id="closeChangePasswordModal" style="float:right;cursor:pointer;font-size:24px">&times;</span>
+  <h3>🔐 Alterar Senha</h3>
+  <p style="margin-bottom:15px;font-size:0.8rem;color:var(--text-light);">Alterando senha do usuário: <strong id="targetUserName"></strong></p>
+  <input type="password" id="newPasswordInput" placeholder="Nova senha">
+  <input type="password" id="confirmPasswordInput" placeholder="Confirmar nova senha">
+  <button id="confirmChangePasswordBtn" style="width:100%;margin-top:10px;">Alterar Senha</button>
+</div>
+</div>
+
 <script>
+// ==================== PWA INSTALL ====================
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  
+  if (!document.getElementById('installBtn')) {
+    const installBtn = document.createElement('button');
+    installBtn.id = 'installBtn';
+    installBtn.className = 'install-btn';
+    installBtn.innerHTML = '📲 Instalar App';
+    installBtn.onclick = async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          console.log('Usuário aceitou instalar');
+        }
+        deferredPrompt = null;
+        installBtn.style.display = 'none';
+      }
+    };
+    document.getElementById('userArea').appendChild(installBtn);
+  }
+});
+
 // ==================== CONFIG ====================
 const STORAGE_KEY = 'rotina_sessao';
 const COLLAPSE_KEY = 'collapse_state';
 
-// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
   authDomain: "rotina-plante.firebaseapp.com",
@@ -452,6 +530,31 @@ const State = {
 // ==================== HELPERS ====================
 const clone = (obj) => structuredClone(obj);
 const generateId = (prefix) => `${prefix}${Date.now()}${Math.random().toString(36).substr(2,6)}`;
+
+// ==================== FUNÇÃO ALTERAR SENHA ====================
+async function changeUserPassword(username, newPassword) {
+  if (!username || !newPassword) return false;
+  try {
+    await db.ref(`/users/${username}/password`).set(newPassword);
+    if (State.users[username]) {
+      State.users[username].password = newPassword;
+    }
+    saveToLocalStorage();
+    alert(`✅ Senha do usuário ${username} alterada com sucesso!`);
+    return true;
+  } catch (error) {
+    console.error('Erro ao alterar senha:', error);
+    alert('❌ Erro ao alterar senha. Tente novamente.');
+    return false;
+  }
+}
+
+function openChangePasswordModal(username) {
+  document.getElementById('targetUserName').textContent = username;
+  document.getElementById('newPasswordInput').value = '';
+  document.getElementById('confirmPasswordInput').value = '';
+  document.getElementById('changePasswordModal').style.display = 'flex';
+}
 
 // ==================== PERSISTÊNCIA ====================
 function saveToLocalStorage() {
@@ -715,7 +818,6 @@ function renderPedidos() {
   const podeAdicionarPedido = currentUserIsOwner && State.users[currentViewing]?.hasOwnTasks !== false;
   const podeResolverPedido = isAdmin;
   
-  // Mostrar pedidos apenas da pessoa atual
   const pedidos = State.pedidosData[currentViewing] || [];
   
   if (pedidos.length === 0 && !podeAdicionarPedido) {
@@ -983,6 +1085,36 @@ const UserActions = {
     const userBadge = document.getElementById('userBadge');
     if (userBadge) userBadge.innerHTML = `👤 ${u.name}`;
     
+    // Adicionar botão Horta no menu
+    if (!document.getElementById('hortaMenuBtn')) {
+      const hortaBtn = document.createElement('button');
+      hortaBtn.id = 'hortaMenuBtn';
+      hortaBtn.className = 'horta-btn';
+      hortaBtn.innerHTML = '🌱 Horta';
+      hortaBtn.onclick = () => {
+        window.open('https://bemestardojardim.github.io/Rotina/mudas.html', '_blank');
+      };
+      document.getElementById('userArea').appendChild(hortaBtn);
+    }
+    
+    // Adicionar botão de alterar senha para admins
+    if (u.role === 'admin' && !document.getElementById('changePasswordBtn')) {
+      const changePassBtn = document.createElement('button');
+      changePassBtn.id = 'changePasswordBtn';
+      changePassBtn.className = 'change-password-btn';
+      changePassBtn.innerHTML = '🔐 Alterar Senha';
+      changePassBtn.onclick = () => {
+        const usersList = Object.keys(State.users);
+        const targetUser = prompt(`Digite o nome do usuário para alterar a senha:\n\nUsuários disponíveis:\n${usersList.join(', ')}`);
+        if (targetUser && State.users[targetUser]) {
+          openChangePasswordModal(targetUser);
+        } else if (targetUser) {
+          alert('❌ Usuário não encontrado!');
+        }
+      };
+      document.getElementById('userArea').appendChild(changePassBtn);
+    }
+    
     const isAdmin = u.role === 'admin';
     const hasOwnTasks = u.hasOwnTasks === true;
     const personSelectorPanel = document.getElementById('personSelectorPanel');
@@ -1133,6 +1265,34 @@ function setupEventListeners() {
   
   const closeEditModal = document.getElementById('closeEditModal');
   if (closeEditModal) closeEditModal.addEventListener('click', () => document.getElementById('editModal').style.display = 'none');
+  
+  const closeChangePasswordModal = document.getElementById('closeChangePasswordModal');
+  if (closeChangePasswordModal) closeChangePasswordModal.addEventListener('click', () => document.getElementById('changePasswordModal').style.display = 'none');
+  
+  const confirmChangePasswordBtn = document.getElementById('confirmChangePasswordBtn');
+  if (confirmChangePasswordBtn) {
+    confirmChangePasswordBtn.addEventListener('click', async () => {
+      const newPass = document.getElementById('newPasswordInput').value;
+      const confirmPass = document.getElementById('confirmPasswordInput').value;
+      const targetUser = document.getElementById('targetUserName').textContent;
+      
+      if (!newPass || !confirmPass) {
+        alert('❌ Preencha os dois campos de senha!');
+        return;
+      }
+      if (newPass !== confirmPass) {
+        alert('❌ As senhas não coincidem!');
+        return;
+      }
+      if (newPass.length < 3) {
+        alert('❌ A senha deve ter pelo menos 3 caracteres!');
+        return;
+      }
+      
+      await changeUserPassword(targetUser, newPass);
+      document.getElementById('changePasswordModal').style.display = 'none';
+    });
+  }
   
   const saveEdit = document.getElementById('saveEdit');
   if (saveEdit) {

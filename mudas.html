@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Horta Missionária - Lista de Compras</title>
+  <title>Horta Missionária - Planejamento Compartilhado</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -33,10 +35,16 @@
       justify-content: center;
       gap: 12px;
       margin-bottom: 8px;
+      flex-wrap: wrap;
     }
-    .header p {
-      opacity: 0.9;
-      font-size: 0.85rem;
+    .header p { opacity: 0.9; font-size: 0.85rem; }
+    .sync-badge {
+      background: rgba(255,255,255,0.2);
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.7rem;
+      margin-top: 8px;
     }
     /* Cards */
     .card {
@@ -57,31 +65,7 @@
       gap: 10px;
     }
     .card-header span { font-size: 1.3rem; }
-    .card-content {
-      padding: 16px 20px;
-    }
-    /* Lista de itens */
-    .plant-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .plant-item {
-      background: #f0f4e8;
-      padding: 8px 16px;
-      border-radius: 40px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: #2e5c3e;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .plant-item::before {
-      content: "🌱";
-      font-size: 0.8rem;
-    }
-    /* Categorias */
+    .card-content { padding: 16px 20px; }
     .category {
       margin-bottom: 20px;
     }
@@ -96,38 +80,6 @@
       align-items: center;
       gap: 8px;
     }
-    .category-title span { font-size: 1.2rem; }
-    /* Observação */
-    .note {
-      background: #fef8e7;
-      border-left: 4px solid #f4a261;
-      padding: 16px;
-      border-radius: 16px;
-      margin: 16px 0;
-      font-size: 0.85rem;
-      color: #5a4a2a;
-    }
-    .spacing-info {
-      background: #e8f0fe;
-      border-radius: 16px;
-      padding: 16px;
-      margin-top: 16px;
-    }
-    .spacing-info h4 {
-      color: #2e7d5c;
-      margin-bottom: 12px;
-      font-size: 0.9rem;
-    }
-    .spacing-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #e2e8e0;
-      font-size: 0.85rem;
-    }
-    .spacing-item:last-child { border-bottom: none; }
-    .spacing-item strong { color: #3b2c1a; }
-    /* Checkbox para marcar itens comprados */
     .checkbox-item {
       display: flex;
       align-items: center;
@@ -146,43 +98,47 @@
       color: #2c2b26;
       cursor: pointer;
     }
-    .checkbox-item input:checked + label {
-      text-decoration: line-through;
-      color: #9e9e8a;
-    }
     .checkbox-item.completed label {
       text-decoration: line-through;
       color: #9e9e8a;
     }
-    .btn-reset {
-      background: #e76f51;
+    /* Botões */
+    button {
+      background: #2e7d5c;
       color: white;
       border: none;
       padding: 10px 20px;
       border-radius: 40px;
       cursor: pointer;
       font-weight: 600;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .btn-reset {
+      background: #e76f51;
       width: 100%;
       margin-top: 16px;
     }
-    .btn-reset:hover { background: #d45a3a; }
-    .footer {
-      text-align: center;
-      padding: 20px;
-      color: #5c6b64;
-      font-size: 0.7rem;
+    .spacing-info {
+      background: #e8f0fe;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
     }
+    .spacing-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e2e8e0;
+      font-size: 0.85rem;
+    }
+    .spacing-item:last-child { border-bottom: none; }
     .calc-area {
       background: #e8f3ed;
       border-radius: 16px;
       padding: 16px;
       margin-top: 16px;
-    }
-    .calc-area h4 {
-      color: #2e7d5c;
-      margin-bottom: 12px;
-      font-size: 0.9rem;
     }
     .calc-input {
       display: flex;
@@ -197,11 +153,6 @@
       border-radius: 12px;
       font-size: 0.9rem;
     }
-    .calc-input button {
-      background: #2e7d5c;
-      padding: 10px 20px;
-      font-size: 0.8rem;
-    }
     .calc-result {
       font-size: 0.85rem;
       color: #2e7d5c;
@@ -211,29 +162,67 @@
       background: white;
       border-radius: 12px;
     }
+    .note {
+      background: #fef8e7;
+      border-left: 4px solid #f4a261;
+      padding: 16px;
+      border-radius: 16px;
+      font-size: 0.85rem;
+      color: #5a4a2a;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #5c6b64;
+      font-size: 0.7rem;
+    }
+    .voltar-btn {
+      background: #4a7b9d;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+    .online-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #0f9d58;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
     @media (max-width: 600px) {
       body { padding: 12px; }
       .header h1 { font-size: 1.3rem; }
-      .plant-list { gap: 8px; }
-      .plant-item { padding: 6px 12px; font-size: 0.8rem; }
+      .calc-input { flex-direction: column; }
     }
   </style>
 </head>
 <body>
 <div class="container">
+  <!-- Botão voltar -->
+  <button class="voltar-btn" onclick="window.location.href='index.html'">← Voltar para Rotina</button>
+
   <div class="header">
     <h1>🌱 Horta Missionária</h1>
-    <p>Lista de compras • Planejamento de plantio</p>
+    <p>Planejamento de compras e plantio • Sincronizado em tempo real</p>
+    <div class="sync-badge">
+      <span class="online-indicator"></span> Sincronizado com Firebase
+    </div>
   </div>
 
-  <!-- Card de Compras (com checkbox) -->
+  <!-- Card de Compras -->
   <div class="card">
     <div class="card-header">
       <span>🛒</span> Lista de Compras
     </div>
     <div class="card-content">
       <div id="shoppingList"></div>
-      <button class="btn-reset" id="resetShoppingBtn">↺ Limpar marcações</button>
+      <button class="btn-reset" id="resetShoppingBtn">↺ Limpar todas as marcações</button>
     </div>
   </div>
 
@@ -253,7 +242,7 @@
       
       <!-- Calculadora de mudas -->
       <div class="calc-area">
-        <h4>📐 Calcular número de mudas</h4>
+        <h4 style="color:#2e7d5c; margin-bottom:12px;">📐 Calcular número de mudas</h4>
         <div class="calc-input">
           <input type="number" id="canteiroLargura" placeholder="Largura do canteiro (cm)" step="any">
           <input type="number" id="canteiroComprimento" placeholder="Comprimento do canteiro (cm)" step="any">
@@ -281,61 +270,67 @@
   </div>
 
   <div class="footer">
-    ✅ Marque os itens que já comprou | Os dados são salvos automaticamente
+    ✅ Marque os itens que já comprou | A lista é sincronizada com todos
   </div>
 </div>
 
 <script>
-  // ==================== LISTA DE ITENS ====================
+  // ==================== FIREBASE CONFIG ====================
+  const firebaseConfig = {
+    apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
+    authDomain: "rotina-plante.firebaseapp.com",
+    projectId: "rotina-plante",
+    storageBucket: "rotina-plante.firebasestorage.app",
+    messagingSenderId: "382389999996",
+    appId: "1:382389999996:web:d210a061cf2587ab84acf9"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // ==================== DADOS ====================
   const CATEGORIAS = [
     { nome: "Folhosas", emoji: "🥬", itens: ["Alface", "Couve", "Cebolinha", "Agrião", "Rúcula", "Espinafre", "Mostarda", "Acelga", "Repolho"] },
-    { nome: "Raízes", emoji: "🥕", itens: ["Rabanete", "Cenoura", "Beterraba", "Nabo"] },
+    { nome: "Raízes", emoji: "🥕", itens: ["Rabanete", "Cenoura", "Beterraba"] },
     { nome: "Temperos", emoji: "🌿", itens: ["Salsa", "Coentro", "Alho-poró"] },
-    { nome: "Leguminosas", emoji: "🫘", itens: ["Ervilha"] }
+   
   ];
 
-  // Estado dos checkboxes
+  // Estado dos checkboxes (vindo do Firebase)
   let checkState = {};
 
-  // Chave do localStorage
-  const STORAGE_KEY = "horta_compras";
+  // ==================== FUNÇÕES FIREBASE ====================
+  function loadFromFirebase() {
+    db.ref('/horta/compras').on('value', (snap) => {
+      const data = snap.val() || {};
+      checkState = data;
+      
+      // Garantir que todos os itens existam no estado
+      CATEGORIAS.forEach(cat => {
+        cat.itens.forEach(item => {
+          if (checkState[item] === undefined) checkState[item] = false;
+        });
+      });
+      
+      renderShoppingList();
+    });
+  }
 
-  // Carregar estado salvo
-  function loadCheckState() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        checkState = JSON.parse(saved);
-      } catch(e) { checkState = {}; }
-    }
-    // Garantir que todos os itens existam no estado
+  function saveToFirebase(item, value) {
+    db.ref(`/horta/compras/${item}`).set(value);
+  }
+
+  function resetAllFirebase() {
+    const updates = {};
     CATEGORIAS.forEach(cat => {
       cat.itens.forEach(item => {
-        if (checkState[item] === undefined) checkState[item] = false;
+        updates[item] = false;
       });
     });
-    saveCheckState();
+    db.ref('/horta/compras').update(updates);
   }
 
-  function saveCheckState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(checkState));
-  }
-
-  function toggleItem(item) {
-    checkState[item] = !checkState[item];
-    saveCheckState();
-    renderShoppingList();
-  }
-
-  function resetAll() {
-    if (confirm("Limpar todas as marcações da lista de compras?")) {
-      Object.keys(checkState).forEach(key => { checkState[key] = false; });
-      saveCheckState();
-      renderShoppingList();
-    }
-  }
-
-  // Renderizar lista de compras
+  // ==================== RENDER ====================
   function renderShoppingList() {
     const container = document.getElementById('shoppingList');
     if (!container) return;
@@ -355,7 +350,9 @@
           <label for="chk_${item.replace(/\s/g, '_')}">${item}</label>
         `;
         const checkbox = itemDiv.querySelector('input');
-        checkbox.addEventListener('change', () => toggleItem(item));
+        checkbox.addEventListener('change', () => {
+          saveToFirebase(item, checkbox.checked);
+        });
         catDiv.appendChild(itemDiv);
       });
       
@@ -369,12 +366,14 @@
     const comprimento = parseFloat(document.getElementById('canteiroComprimento').value);
     const espacamento = parseFloat(document.getElementById('espacamento').value);
     
+    const resultDiv = document.getElementById('calcResultado');
+    
     if (isNaN(largura) || isNaN(comprimento) || largura <= 0 || comprimento <= 0) {
-      document.getElementById('calcResultado').innerHTML = '⚠️ Preencha largura e comprimento do canteiro (valores positivos).';
+      resultDiv.innerHTML = '⚠️ Preencha largura e comprimento do canteiro (valores positivos).';
       return;
     }
     if (isNaN(espacamento) || espacamento <= 0) {
-      document.getElementById('calcResultado').innerHTML = '⚠️ Informe um espaçamento válido.';
+      resultDiv.innerHTML = '⚠️ Informe um espaçamento válido.';
       return;
     }
     
@@ -382,25 +381,40 @@
     const plantasComprimento = Math.floor(comprimento / espacamento);
     const totalPlantas = plantasLargura * plantasComprimento;
     
-    document.getElementById('calcResultado').innerHTML = `
+    resultDiv.innerHTML = `
       📏 <strong>${largura}cm</strong> x <strong>${comprimento}cm</strong> com espaçamento de <strong>${espacamento}cm</strong><br>
       🌱 Cabe cerca de <strong>${plantasLargura}</strong> plantas na largura × <strong>${plantasComprimento}</strong> plantas no comprimento<br>
       🟢 <strong>Total aproximado: ${totalPlantas} mudas</strong>
     `;
   }
 
+  // ==================== RESET ====================
+  function resetShopping() {
+    if (confirm('⚠️ Limpar todas as marcações da lista de compras? Isso afetará todos os usuários.')) {
+      resetAllFirebase();
+    }
+  }
+
   // ==================== INICIALIZAÇÃO ====================
   function init() {
-    loadCheckState();
-    renderShoppingList();
+    loadFromFirebase();
     
-    document.getElementById('resetShoppingBtn')?.addEventListener('click', resetAll);
+    document.getElementById('resetShoppingBtn')?.addEventListener('click', resetShopping);
     document.getElementById('calcularBtn')?.addEventListener('click', calcularMudas);
     
-    // Calcular automaticamente ao mudar os campos (opcional)
+    // Calcular automaticamente ao mudar os campos
     document.getElementById('canteiroLargura')?.addEventListener('input', calcularMudas);
     document.getElementById('canteiroComprimento')?.addEventListener('input', calcularMudas);
     document.getElementById('espacamento')?.addEventListener('input', calcularMudas);
+    
+    // Indicador de conexão
+    const connectedRef = firebase.database().ref('.info/connected');
+    connectedRef.on('value', (snap) => {
+      const indicator = document.querySelector('.online-indicator');
+      if (indicator) {
+        indicator.style.background = snap.val() ? '#0f9d58' : '#e76f51';
+      }
+    });
   }
   
   init();

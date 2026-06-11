@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Timer + Tanque de Água</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(145deg, #0a0f1e 0%, #061a15 100%);
+            font-family: 'Segoe UI', 'Poppins', 'Inter', system-ui, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .main-dashboard {
+            max-width: 780px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .voltar-btn {
+            background: #4a7b9d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            width: fit-content;
+        }
+        .voltar-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+        .sync-badge {
+            background: rgba(255,255,255,0.15);
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            margin-bottom: 12px;
+            color: #7bc5ff;
+        }
+        .online-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0f9d58;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .clock-dashboard {
+            background: rgba(18, 25, 45, 0.75);
+            backdrop-filter: blur(4px);
+            border-radius: 3rem;
+            padding: 1.8rem 2rem 2rem 2rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(72, 187, 255, 0.3);
+        }
+
+        .clock-area {
+            background: #010314;
+            border-radius: 2.5rem;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.6), 0 8px 18px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2a3a60;
+        }
+
+        .time {
+            font-size: 4.2rem;
+            font-weight: 700;
+            letter-spacing: 6px;
+            font-family: 'JetBrains Mono', 'Fira Mono', monospace;
+            background: linear-gradient(135deg, #eef9ff, #7bc5ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .date {
+            font-size: 1.1rem;
+            margin-top: 12px;
+            color: #9bb8e0;
+            font-weight: 500;
+        }
+
+        .timers-header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .add-timer-btn {
+            background: linear-gradient(135deg, #1f6e43, #0f4f2f);
+            border: none;
+            color: white;
+            font-weight: bold;
+            font-size: 1.4rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .add-timer-btn:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, #2a8a55, #1a6a3a);
+            box-shadow: 0 0 12px #2ee68f66;
+        }
+
+        .config-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .config-card {
+            background: rgba(8, 14, 26, 0.85);
+            border-radius: 1.6rem;
+            padding: 0.9rem 1.2rem;
+            border: 1px solid rgba(56, 128, 255, 0.4);
+            transition: all 0.2s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .config-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            gap: 8px;
+        }
+
+        .title-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .config-title {
+            font-weight: bold;
+            background: #1e2a3e;
+            padding: 4px 14px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            color: #b8d0ff;
+        }
+
+        .delete-timer-btn {
+            background: #5a2a2a;
+            border: none;
+            color: #ffbcbc;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+
+        .delete-timer-btn:hover {
+            background: #a03333;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .schedule-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            row-gap: 10px;
+            margin-top: 8px;
+        }
+
+        .time-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #03060e;
+            padding: 6px 15px;
+            border-radius: 60px;
+            border: 1px solid #2e4970;
+        }
+
+        .time-picker label {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #7d9ed3;
+        }
+
+        input[type="time"] {
+            background: #01050c;
+            border: 1px solid #2e5f8a;
+            color: #c6e2ff;
+            font-family: monospace;
+            font-weight: bold;
+            padding: 6px 12px;
+            border-radius: 36px;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="time"]:focus {
+            border-color: #3e8eff;
+            box-shadow: 0 0 6px #3e8eff;
+        }
+
+        .tank-container {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 48px;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(72, 187, 255, 0.2);
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.5);
+            cursor: grab;
+            width: 100%;
+            height: auto;
+            background: #0d2620;
+            max-width: 500px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 36px;
+            padding: 18px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .tank-status {
+            text-align: center;
+            color: #88ccdd;
+            font-size: 12px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+
+        .note {
+            font-size: 0.75rem;
+            text-align: center;
+            margin-top: 1.4rem;
+            color: #6a7c9e;
+            border-top: 1px dashed #2a3c58;
+            padding-top: 1rem;
+        }
+
+        @media (max-width: 550px) {
+            .clock-dashboard { padding: 1rem; }
+            .time { font-size: 2.8rem; }
+            .schedule-row { flex-direction: column; align-items: stretch; }
+            .time-picker { justify-content: space-between; }
+            .timers-header { justify-content: center; }
+            .tank-container { padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-dashboard">
+    <button class="voltar-btn" onclick="window.location.href='index.html'">← Voltar para Rotina</button>
+
+    <div class="clock-dashboard">
+        <div style="text-align: center; margin-bottom: 8px;">
+            <div class="sync-badge">
+                <span class="online-indicator"></span> Sincronizado com Firebase
+            </div>
+        </div>
+        <div class="clock-area">
+            <div class="time" id="liveClock">--:--:--</div>
+            <div class="date" id="liveDate">Carregando...</div>
+        </div>
+
+        <div class="timers-header">
+            <button class="add-timer-btn" id="addTimerBtn" title="Adicionar novo timer">+</button>
+        </div>
+
+        <div class="config-grid" id="configContainer"></div>
+        <div class="note">
+            ⏰ <strong>Funcionamento automático:</strong> Cada timer liga e desliga nos horários programados.<br>
+            ✅ Clique no <strong style="color:#aaffaa;">+</strong> para adicionar. Clique no <strong style="color:#ffaaaa;">✖</strong> para remover.
+        </div>
+    </div>
+
+    <div class="tank-container">
+        <div class="canvas-wrapper">
+            <canvas id="tankCanvas" width="500" height="400"></canvas>
+        </div>
+        <div class="controls">
+            <input type="range" id="levelSlider" min="0" max="100" value="50">
+        </div>
+        <div class="tank-status" id="statusMsg">🎮 Mova o mouse ou incline o telefone</div>
+    </div>
+</div>
+
+<script>
+    // ==================== FIREBASE CONFIG ====================
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
+        authDomain: "rotina-plante.firebaseapp.com",
+        projectId: "rotina-plante",
+        storageBucket: "rotina-plante.firebasestorage.app",
+        messagingSenderId: "382389999996",
+        appId: "1:382389999996:web:d210a061cf2587ab84acf9"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ==================== TIMERS COM FIREBASE ====================
+    let timersList = [];
+    let nextId = 1;
+    let currentStatus = [];
+    let uiElements = [];
+    let isUpdatingFromFirebase = false;
+
+    // Carregar timers do Firebase
+    function loadTimersFromFirebase() {
+        db.ref('/timers/list').on('value', (snap) => {
+            if (isUpdatingFromFirebase) return;
+            const data = snap.val();
+            if (data && Array.isArray(data) && data.length > 0) {
+                timersList = data;
+                let maxId = 0;
+                for (let t of timersList) {
+                    if (t.id && t.id > maxId) maxId = t.id;
+                }
+                nextId = maxId + 1;
+                for (let i = 0; i < timersList.length; i++) {
+                    if (timersList[i].enabled === undefined) timersList[i].enabled = true;
+                }
+            } else {
+                timersList = [
+                    { id: 1, name: "Timer 1", onTime: "13:00", offTime: "14:00", enabled: true },
+                    { id: 2, name: "Timer 2", onTime: "08:30", offTime: "12:15", enabled: true },
+                    { id: 3, name: "Timer 3", onTime: "18:00", offTime: "22:30", enabled: true },
+                    { id: 4, name: "Timer 4", onTime: "00:00", offTime: "06:00", enabled: true },
+                    { id: 5, name: "Timer 5", onTime: "15:45", offTime: "17:20", enabled: true }
+                ];
+                nextId = 6;
+                saveTimersToFirebase();
+            }
+            rebuildFullUI();
+        });
+    }
+
+    function saveTimersToFirebase() {
+        isUpdatingFromFirebase = true;
+        db.ref('/timers/list').set(timersList).then(() => {
+            isUpdatingFromFirebase = false;
+        });
+    }
+
+    // ==================== NÍVEL DA ÁGUA COM FIREBASE ====================
+    let waterPercent = 50;
+    let isUpdatingWaterLevel = false;
+
+    function loadWaterLevelFromFirebase() {
+        db.ref('/tanque/nivel').on('value', (snap) => {
+            if (isUpdatingWaterLevel) return;
+            const nivel = snap.val();
+            if (nivel !== null && typeof nivel === 'number') {
+                waterPercent = Math.min(100, Math.max(0, nivel));
+                const slider = document.getElementById('levelSlider');
+                if (slider) slider.value = waterPercent;
+                const statusMsg = document.getElementById('statusMsg');
+                if (statusMsg) statusMsg.innerHTML = `💧 Nível: ${waterPercent}% | Sincronizado`;
+            }
+        });
+    }
+
+    function saveWaterLevelToFirebase(nivel) {
+        isUpdatingWaterLevel = true;
+        db.ref('/tanque/nivel').set(nivel).then(() => {
+            isUpdatingWaterLevel = false;
+        });
+    }
+
+    // ==================== FUNÇÕES DOS TIMERS ====================
+    function toMinutes(timeStr) {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(":").map(Number);
+        return h * 60 + m;
+    }
+
+    function isTimerActive(timer, currentHourMin) {
+        if (!timer.enabled) return false;
+        const nowMin = toMinutes(currentHourMin);
+        const onMin = toMinutes(timer.onTime);
+        const offMin = toMinutes(timer.offTime);
+        if (onMin === offMin) return false;
+        if (onMin < offMin) {
+            return (nowMin >= onMin && nowMin < offMin);
+        } else {
+            return (nowMin >= onMin || nowMin < offMin);
+        }
+    }
+
+    function updateUIBadgesOnly() {
+        for (let i = 0; i < timersList.length; i++) {
+            const ui = uiElements[i];
+            if (!ui) continue;
+            const isActive = currentStatus[i];
+            if (isActive) {
+                ui.statusSpan.innerHTML = "🟢 LIGADO";
+                ui.statusSpan.style.background = "#0f6c3a";
+                ui.statusSpan.style.color = "#e0ffe8";
+                ui.cardDiv.style.borderLeft = "5px solid #2ee68f";
+                ui.cardDiv.style.boxShadow = "0 0 6px #2ee68f55";
+            } else {
+                ui.statusSpan.innerHTML = "🔴 DESLIGADO";
+                ui.statusSpan.style.background = "#6e2a2a";
+                ui.statusSpan.style.color = "#ffcaca";
+                ui.cardDiv.style.borderLeft = "5px solid #ff7b6e";
+                ui.cardDiv.style.boxShadow = "none";
+            }
+        }
+    }
+
+    function updateAllStatuses() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const currentHM = `${hours}:${minutes}`;
+        let changed = false;
+        for (let i = 0; i < timersList.length; i++) {
+            const newState = isTimerActive(timersList[i], currentHM);
+            if (currentStatus[i] !== newState) {
+                currentStatus[i] = newState;
+                changed = true;
+            }
+        }
+        if (changed) updateUIBadgesOnly();
+    }
+
+    function removeTimerById(timerId) {
+        const index = timersList.findIndex(t => t.id === timerId);
+        if (index !== -1) {
+            timersList.splice(index, 1);
+            currentStatus.splice(index, 1);
+            uiElements.splice(index, 1);
+            saveTimersToFirebase();
+            rebuildFullUI();
+        }
+    }
+
+    function addNewTimer() {
+        const newId = nextId++;
+        const newTimer = {
+            id: newId,
+            name: `Timer ${newId}`,
+            onTime: "09:00",
+            offTime: "17:00",
+            enabled: true
+        };
+        timersList.push(newTimer);
+        saveTimersToFirebase();
+        rebuildFullUI();
+    }
+
+    function rebuildFullUI() {
+        const container = document.getElementById("configContainer");
+        if (!container) return;
+        container.innerHTML = "";
+        uiElements = [];
+        
+        while (currentStatus.length < timersList.length) currentStatus.push(false);
+        if (currentStatus.length > timersList.length) currentStatus.length = timersList.length;
+        
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const currentHM = `${hours}:${minutes}`;
+        for (let i = 0; i < timersList.length; i++) {
+            currentStatus[i] = isTimerActive(timersList[i], currentHM);
+        }
+        
+        for (let idx = 0; idx < timersList.length; idx++) {
+            const timer = timersList[idx];
+            const card = document.createElement("div");
+            card.className = "config-card";
+            
+            const headerDiv = document.createElement("div");
+            headerDiv.className = "config-header";
+            
+            const titleArea = document.createElement("div");
+            titleArea.className = "title-area";
+            
+            const titleSpan = document.createElement("span");
+            titleSpan.className = "config-title";
+            titleSpan.textContent = `${timer.name} ⏲️`;
+            
+            const deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "✖";
+            deleteBtn.className = "delete-timer-btn";
+            deleteBtn.title = "Remover este timer";
+            deleteBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                removeTimerById(timer.id);
+            });
+            
+            titleArea.appendChild(titleSpan);
+            titleArea.appendChild(deleteBtn);
+            
+            const statusSpan = document.createElement("span");
+            statusSpan.className = "status-badge";
+            
+            headerDiv.appendChild(titleArea);
+            headerDiv.appendChild(statusSpan);
+            
+            const scheduleRow = document.createElement("div");
+            scheduleRow.className = "schedule-row";
+            
+            const onDiv = document.createElement("div");
+            onDiv.className = "time-picker";
+            const onLabel = document.createElement("label");
+            onLabel.textContent = "ON";
+            const onInput = document.createElement("input");
+            onInput.type = "time";
+            onInput.value = timer.onTime;
+            onInput.addEventListener("change", (e) => {
+                timer.onTime = e.target.value;
+                saveTimersToFirebase();
+                const nowTime = new Date();
+                const hm = `${nowTime.getHours().toString().padStart(2,'0')}:${nowTime.getMinutes().toString().padStart(2,'0')}`;
+                const newActive = isTimerActive(timer, hm);
+                if (currentStatus[idx] !== newActive) {
+                    currentStatus[idx] = newActive;
+                    updateUIBadgesOnly();
+                } else {
+                    updateUIBadgesOnly();
+                }
+            });
+            onDiv.appendChild(onLabel);
+            onDiv.appendChild(onInput);
+            
+            const offDiv = document.createElement("div");
+            offDiv.className = "time-picker";
+            const offLabel = document.createElement("label");
+            offLabel.textContent = "OFF";
+            const offInput = document.createElement("input");
+            offInput.type = "time";
+            offInput.value = timer.offTime;
+            offInput.addEventListener("change", (e) => {
+                timer.offTime = e.target.value;
+                saveTimersToFirebase();
+                const nowTime = new Date();
+                const hm = `${nowTime.getHours().toString().padStart(2,'0')}:${nowTime.getMinutes().toString().padStart(2,'0')}`;
+                const newActive = isTimerActive(timer, hm);
+                if (currentStatus[idx] !== newActive) {
+                    currentStatus[idx] = newActive;
+                    updateUIBadgesOnly();
+                } else {
+                    updateUIBadgesOnly();
+                }
+            });
+            offDiv.appendChild(offLabel);
+            offDiv.appendChild(offInput);
+            
+            scheduleRow.appendChild(onDiv);
+            scheduleRow.appendChild(offDiv);
+            
+            card.appendChild(headerDiv);
+            card.appendChild(scheduleRow);
+            container.appendChild(card);
+            
+            uiElements.push({
+                cardDiv: card,
+                statusSpan: statusSpan,
+                onInput: onInput,
+                offInput: offInput,
+                timerId: timer.id
+            });
+        }
+        
+        updateUIBadgesOnly();
+    }
+
+    // Relógio
+    let clockInterval = null;
+    function startClockAndMonitoring() {
+        if (clockInterval) clearInterval(clockInterval);
+        
+        function tick() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            const timeString = `${hours}:${minutes}:${seconds}`;
+            const clockElement = document.getElementById("liveClock");
+            if (clockElement) clockElement.textContent = timeString;
+            
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            let dateString = now.toLocaleDateString('pt-BR', options);
+            dateString = dateString.charAt(0).toUpperCase() + dateString.slice(1);
+            const dateElement = document.getElementById("liveDate");
+            if (dateElement) dateElement.textContent = dateString;
+            
+            const currentHM = `${hours}:${minutes}`;
+            let anyChange = false;
+            for (let i = 0; i < timersList.length; i++) {
+                const newState = isTimerActive(timersList[i], currentHM);
+                if (currentStatus[i] !== newState) {
+                    currentStatus[i] = newState;
+                    anyChange = true;
+                }
+            }
+            if (anyChange) updateUIBadgesOnly();
+        }
+        
+        tick();
+        clockInterval = setInterval(tick, 1000);
+    }
+
+    // ==================== TANQUE DE ÁGUA ====================
+    const MAX_TILT_RAD = 0.4;
+    const GYRO_MAX_DEG = 60;
+    const TILT_SMOOTHING = 0.08;
+    const WAVE_SPEED = 0.12;
+    const BUBBLE_COUNT = 18;
+    
+    const canvas = document.getElementById('tankCanvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('levelSlider');
+    const statusMsg = document.getElementById('statusMsg');
+    
+    const BASE_WIDTH = 500;
+    const BASE_HEIGHT = 400;
+    let logicalWidth = BASE_WIDTH;
+    let logicalHeight = BASE_HEIGHT;
+    let dpr = window.devicePixelRatio || 1;
+    
+    function resizeCanvas() {
+        const container = canvas.parentElement;
+        const maxWidth = container.clientWidth;
+        let displayWidth = Math.min(BASE_WIDTH, maxWidth);
+        let displayHeight = (displayWidth / BASE_WIDTH) * BASE_HEIGHT;
+        logicalWidth = BASE_WIDTH;
+        logicalHeight = BASE_HEIGHT;
+        canvas.width = logicalWidth * dpr;
+        canvas.height = logicalHeight * dpr;
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+    }
+    
+    let tankLeft = 50, tankRight = logicalWidth - 50;
+    let tankTop = 50, tankBottom = logicalHeight - 40;
+    let tankW = tankRight - tankLeft;
+    let tankH = tankBottom - tankTop;
+    
+    function updateTankGeometry() {
+        tankLeft = 50;
+        tankRight = logicalWidth - 50;
+        tankTop = 50;
+        tankBottom = logicalHeight - 40;
+        tankW = tankRight - tankLeft;
+        tankH = tankBottom - tankTop;
+    }
+    
+    let tiltAngle = 0;
+    let targetTilt = 0;
+    let waveOffset = 0;
+    
+    class Bubble {
+        constructor() { this.reset(); }
+        reset() {
+            this.x = tankLeft + 15 + Math.random() * (tankW - 30);
+            this.y = tankBottom - 10 - Math.random() * (waterPercent / 100) * tankH;
+            this.size = 2 + Math.random() * 3;
+            this.speed = 0.3 + Math.random() * 1.2;
+            this.wobble = Math.random() * Math.PI * 2;
+            this.wobbleSpeed = 0.03 + Math.random() * 0.06;
+        }
+        update(currentWaterSurfaceY) {
+            this.y -= this.speed;
+            this.wobble += this.wobbleSpeed;
+            this.x += Math.sin(this.wobble) * 0.3;
+            this.x += tiltAngle * 0.5;
+            this.x = Math.min(tankRight - 8, Math.max(tankLeft + 8, this.x));
+            if (this.y < currentWaterSurfaceY || this.y < tankTop + 5) {
+                this.y = tankBottom - 8;
+                this.x = tankLeft + 15 + Math.random() * (tankW - 30);
+            }
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(180, 220, 255, 0.6)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(this.x - 1, this.y - 1, this.size * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fill();
+        }
+    }
+    
+    let bubbles = [];
+    function initBubbles() {
+        bubbles = [];
+        for (let i = 0; i < BUBBLE_COUNT; i++) bubbles.push(new Bubble());
+    }
+    
+    function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+    
+    function drawMarks() {
+        ctx.save();
+        ctx.font = "bold 14px monospace";
+        ctx.fillStyle = "#ffdd88";
+        ctx.shadowBlur = 0;
+        ctx.textAlign = "right";
+        ctx.lineWidth = 2;
+        for(let m = 1; m <= 4; m++) {
+            let markY = tankBottom - (m/4) * tankH;
+            ctx.fillStyle = "#ffdd88";
+            ctx.fillText(m+"/4", tankLeft - 8, markY + 5);
+            ctx.beginPath();
+            ctx.moveTo(tankLeft - 12, markY);
+            ctx.lineTo(tankLeft, markY);
+            ctx.strokeStyle = "#ffaa66";
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(tankLeft, markY);
+            ctx.lineTo(tankLeft + 8, markY);
+            ctx.strokeStyle = "#88ccdd";
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+    
+    function drawSurfaceWaves(yLeft, yRight) {
+        const steps = 40;
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 245, 0.8)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const x = tankLeft + t * tankW;
+            let yBase = yLeft + (yRight - yLeft) * t;
+            const waveY = Math.sin(t * Math.PI * 4 + waveOffset * 1.5) * 3;
+            const y = yBase + waveY;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(200, 240, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const x = tankLeft + t * tankW;
+            let yBase = yLeft + (yRight - yLeft) * t;
+            const waveY = Math.sin(t * Math.PI * 2 + waveOffset * 2) * 2;
+            const y = yBase + waveY - 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    }
+    
+    function draw() {
+        ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+        
+        ctx.fillStyle = '#0a1f1a';
+        ctx.shadowBlur = 4;
+        roundRect(ctx, tankLeft-3, tankTop-3, tankW+6, tankH+6, 18);
+        ctx.fill();
+        
+        ctx.fillStyle = '#0d2a22';
+        roundRect(ctx, tankLeft, tankTop, tankW, tankH, 15);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#4aa8a5';
+        ctx.lineWidth = 2;
+        roundRect(ctx, tankLeft, tankTop, tankW, tankH, 15);
+        ctx.stroke();
+        
+        drawMarks();
+        
+        const centerX = (tankLeft + tankRight) / 2;
+        const avgFillY = tankBottom - (waterPercent / 100) * tankH;
+        const slope = Math.tan(tiltAngle);
+        
+        let yLeft = avgFillY + slope * (tankLeft - centerX);
+        let yRight = avgFillY + slope * (tankRight - centerX);
+        
+        yLeft = Math.min(tankBottom - 3, Math.max(tankTop + 3, yLeft));
+        yRight = Math.min(tankBottom - 3, Math.max(tankTop + 3, yRight));
+        
+        ctx.beginPath();
+        ctx.moveTo(tankLeft, tankBottom);
+        ctx.lineTo(tankLeft, yLeft);
+        
+        const steps = 30;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const x = tankLeft + t * tankW;
+            let yBase = yLeft + (yRight - yLeft) * t;
+            const waveY = Math.sin(t * Math.PI * 3 + waveOffset) * 3;
+            const y = yBase + waveY;
+            ctx.lineTo(x, y);
+        }
+        
+        ctx.lineTo(tankRight, tankBottom);
+        ctx.closePath();
+        
+        const grad = ctx.createLinearGradient(tankLeft, tankTop, tankRight, tankBottom);
+        grad.addColorStop(0, '#2ab0e6');
+        grad.addColorStop(0.5, '#1e88c5');
+        grad.addColorStop(1, '#0c5f88');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        
+        drawSurfaceWaves(yLeft, yRight);
+        
+        for (let bubble of bubbles) {
+            let tSurface = (bubble.x - tankLeft) / tankW;
+            tSurface = Math.min(1, Math.max(0, tSurface));
+            let waterSurfaceY = yLeft + (yRight - yLeft) * tSurface;
+            waterSurfaceY = Math.min(tankBottom, Math.max(tankTop, waterSurfaceY));
+            bubble.update(waterSurfaceY);
+            if (bubble.y < waterSurfaceY && bubble.y > tankTop) bubble.draw();
+        }
+        
+        ctx.font = "bold 46px system-ui, 'Segoe UI'";
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = "rgba(0,0,0,0.6)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${Math.floor(waterPercent)}%`, tankLeft + tankW/2, tankTop + tankH/2);
+        
+        ctx.font = "bold 12px monospace";
+        ctx.fillStyle = "#bbffdd";
+        ctx.fillText("NÍVEL", tankLeft + tankW/2, tankTop + tankH/2 - 42);
+        ctx.textAlign = "left";
+        ctx.shadowBlur = 0;
+    }
+    
+    function animate() {
+        waveOffset += WAVE_SPEED;
+        tiltAngle += (targetTilt - tiltAngle) * TILT_SMOOTHING;
+        draw();
+        requestAnimationFrame(animate);
+    }
+    
+    // Slider com sincronização Firebase
+    slider.addEventListener('input', (e) => {
+        const novoNivel = parseInt(e.target.value);
+        waterPercent = novoNivel;
+        statusMsg.innerHTML = `💧 Nível: ${waterPercent}%`;
+        saveWaterLevelToFirebase(waterPercent);
+        for (let bubble of bubbles) {
+            if (bubble.y > tankBottom - (waterPercent/100) * tankH) {
+                bubble.y = tankBottom - 8 - Math.random() * (waterPercent/100) * tankH;
+            }
+        }
+    });
+    
+    let gyroEnabled = false;
+    function initGyro() {
+        if (typeof DeviceOrientationEvent !== 'undefined') {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const btn = document.createElement('div');
+                btn.style.cssText = 'position:fixed;bottom:100px;left:20px;right:20px;background:#1e6b5e;color:white;padding:12px;border-radius:30px;text-align:center;z-index:9999;font-weight:bold';
+                btn.innerText = '📱 Toque aqui para ativar inclinação';
+                btn.onclick = async () => {
+                    try {
+                        await DeviceOrientationEvent.requestPermission();
+                        window.addEventListener('deviceorientation', handleGyro);
+                        gyroEnabled = true;
+                        statusMsg.innerHTML = '📳 Giroscópio ATIVO! Incline o telefone';
+                        btn.remove();
+                    } catch(e) { btn.remove(); }
+                };
+                document.body.appendChild(btn);
+                setTimeout(() => btn.remove(), 8000);
+            } else {
+                window.addEventListener('deviceorientation', handleGyro);
+                gyroEnabled = true;
+                statusMsg.innerHTML = '📳 Giroscópio ativo';
+            }
+        }
+    }
+    
+    function handleGyro(e) {
+        if (!gyroEnabled) return;
+        let gamma = e.gamma;
+        if (gamma !== null && gamma !== undefined) {
+            let clamped = Math.min(GYRO_MAX_DEG, Math.max(-GYRO_MAX_DEG, gamma));
+            let newTilt = (clamped / GYRO_MAX_DEG) * MAX_TILT_RAD;
+            targetTilt = Math.min(MAX_TILT_RAD, Math.max(-MAX_TILT_RAD, newTilt));
+            statusMsg.innerHTML = `📳 Inclinação: ${Math.floor(clamped)}° | Nível: ${waterPercent}%`;
+        }
+    }
+    
+    function handleMouse(e) {
+        if (gyroEnabled) return;
+        let rect = canvas.getBoundingClientRect();
+        let x = (e.clientX - rect.left) / rect.width;
+        x = Math.min(1, Math.max(0, x));
+        let mapped = (x - 0.5) * 2 * MAX_TILT_RAD;
+        targetTilt = Math.min(MAX_TILT_RAD, Math.max(-MAX_TILT_RAD, mapped));
+        statusMsg.innerHTML = `🖱️ Mouse: ${Math.floor(Math.abs(mapped * 50))}% | Nível: ${waterPercent}%`;
+    }
+    
+    function handleTouch(e) {
+        if (gyroEnabled) return;
+        if (e.touches[0]) {
+            let rect = canvas.getBoundingClientRect();
+            let x = (e.touches[0].clientX - rect.left) / rect.width;
+            x = Math.min(1, Math.max(0, x));
+            let mapped = (x - 0.5) * 2 * MAX_TILT_RAD;
+            targetTilt = Math.min(MAX_TILT_RAD, Math.max(-MAX_TILT_RAD, mapped));
+            statusMsg.innerHTML = `👆 Toque: ${Math.floor(Math.abs(mapped * 50))}% | Nível: ${waterPercent}%`;
+        }
+        e.preventDefault();
+    }
+    
+    canvas.addEventListener('dblclick', () => {
+        targetTilt = 0;
+        statusMsg.innerHTML = `🌊 Água nivelada! | Nível: ${waterPercent}%`;
+        setTimeout(() => {
+            if (gyroEnabled) statusMsg.innerHTML = `📳 Giroscópio ativo | Nível: ${waterPercent}%`;
+            else statusMsg.innerHTML = `🎮 Mova o mouse | Nível: ${waterPercent}%`;
+        }, 1500);
+    });
+    
+    function handleResize() {
+        resizeCanvas();
+        updateTankGeometry();
+        initBubbles();
+        draw();
+    }
+    
+    window.addEventListener('resize', handleResize);
+    
+    // ==================== INICIALIZAÇÃO ====================
+    function init() {
+        loadTimersFromFirebase();
+        loadWaterLevelFromFirebase();
+        startClockAndMonitoring();
+        
+        resizeCanvas();
+        updateTankGeometry();
+        initBubbles();
+        initGyro();
+        canvas.addEventListener('mousemove', handleMouse);
+        canvas.addEventListener('touchmove', handleTouch, { passive: false });
+        animate();
+        
+        const addBtn = document.getElementById("addTimerBtn");
+        if (addBtn) addBtn.addEventListener("click", addNewTimer);
+        
+        statusMsg.innerHTML = `🎮 Mova o mouse ou incline o telefone | Nível: ${waterPercent}%`;
+        
+        // Indicador de conexão
+        const connectedRef = firebase.database().ref('.info/connected');
+        connectedRef.on('value', (snap) => {
+            const indicator = document.querySelector('.online-indicator');
+            if (indicator) indicator.style.background = snap.val() ? '#0f9d58' : '#e76f51';
+        });
+    }
+    
+    init();
+</script>
+</body>
+</html>

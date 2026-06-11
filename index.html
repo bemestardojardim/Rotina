@@ -86,8 +86,13 @@
     }
     button:hover { transform: translateY(-1px); filter: brightness(1.05); }
     .logout-btn { background: var(--accent-dark); }
-    .horta-btn { background: #2196F3; display: inline-flex; align-items: center; gap: 6px; }
-    .horta-btn:hover { background: #0b7dda; }
+    .horta-btn, .timer-btn {
+      background: #2196F3;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .horta-btn:hover, .timer-btn:hover { background: #0b7dda; }
     .install-btn { background: var(--primary-dark); font-size: 0.7rem; padding: 6px 12px; }
     .change-password-btn { background: #2196F3; font-size: 0.7rem; padding: 6px 12px; }
     .person-selector {
@@ -288,17 +293,17 @@
     }
     .add-pedido-btn { background: var(--primary-light); color: var(--primary-dark); padding: 4px 10px; font-size: 0.75rem; cursor: pointer; }
     
-    /* RESPONSIVO - BOTÕES VISÍVEIS NO MOBILE */
+    /* RESPONSIVO */
     @media (max-width: 700px) {
       .container { padding: 12px; }
       .task-info { flex-direction: column; gap: 4px; align-items: flex-start; }
       .task-item { padding: 8px 12px; }
       .person-btn { padding: 4px 12px; font-size: 0.75rem; }
       
-      /* Botões visíveis e organizados no mobile */
       .install-btn, 
       .change-password-btn, 
-      .horta-btn {
+      .horta-btn,
+      .timer-btn {
         display: inline-flex;
         font-size: 0.7rem;
         padding: 5px 10px;
@@ -667,13 +672,14 @@ function addTask(person, type, time, desc) {
   const arr = type === 'timeline' ? State.tasksData[person].timeline : State.tasksData[person].extra;
   arr.push({ id: generateId(type === 'timeline' ? 't' : 'e'), time, desc });
   type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+  renderAll();
 }
 
 function editTask(person, type, id, time, desc) {
   if (!State.tasksData[person]) return;
   const arr = type === 'timeline' ? State.tasksData[person].timeline : State.tasksData[person].extra;
   const task = arr.find(t => t.id === id);
-  if (task) { task.time = time; task.desc = desc; type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person); }
+  if (task) { task.time = time; task.desc = desc; type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person); renderAll(); }
 }
 
 function deleteTask(person, type, id) {
@@ -683,6 +689,7 @@ function deleteTask(person, type, id) {
   type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
   delete State.tasksData[person].status[id];
   db.ref(`/tasks/${person}/status/${id}`).remove();
+  renderAll();
 }
 
 function duplicateTask(person, type, id) {
@@ -692,6 +699,7 @@ function duplicateTask(person, type, id) {
   if (task) {
     arr.push({ ...clone(task), id: generateId(type === 'timeline' ? 't' : 'e'), desc: task.desc + ' (cópia)' });
     type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+    renderAll();
   }
 }
 
@@ -896,12 +904,12 @@ function createActionButtons(person, taskId, isTimeline, canEdit) {
   const dupBtn = document.createElement('button');
   dupBtn.innerHTML = '📋'; dupBtn.className = 'task-btn';
   dupBtn.title = 'Duplicar';
-  dupBtn.onclick = (e) => { e.stopPropagation(); duplicateTask(person, isTimeline ? 'timeline' : 'extra', taskId); renderAll(); };
+  dupBtn.onclick = (e) => { e.stopPropagation(); duplicateTask(person, isTimeline ? 'timeline' : 'extra', taskId); };
   
   const delBtn = document.createElement('button');
   delBtn.innerHTML = '🗑️'; delBtn.className = 'task-btn';
   delBtn.title = 'Apagar';
-  delBtn.onclick = (e) => { e.stopPropagation(); if (confirm('Apagar esta tarefa?')) { deleteTask(person, isTimeline ? 'timeline' : 'extra', taskId); renderAll(); } };
+  delBtn.onclick = (e) => { e.stopPropagation(); if (confirm('Apagar esta tarefa?')) { deleteTask(person, isTimeline ? 'timeline' : 'extra', taskId); } };
   
   if (canEdit) {
     actions.appendChild(editBtn);
@@ -1095,6 +1103,18 @@ const UserActions = {
         window.open('https://bemestardojardim.github.io/Rotina/mudas.html', '_blank');
       };
       document.getElementById('userArea').appendChild(hortaBtn);
+    }
+    
+    // Adicionar botão Timer no menu
+    if (!document.getElementById('timerMenuBtn')) {
+      const timerBtn = document.createElement('button');
+      timerBtn.id = 'timerMenuBtn';
+      timerBtn.className = 'timer-btn';
+      timerBtn.innerHTML = '⏰ Timer';
+      timerBtn.onclick = () => {
+        window.open('https://bemestardojardim.github.io/Rotina/timer.html', '_blank');
+      };
+      document.getElementById('userArea').appendChild(timerBtn);
     }
     
     // Adicionar botão de alterar senha para admins

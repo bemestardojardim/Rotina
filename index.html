@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>🌱 Missão Plante - Rotina Integrada</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    %22name%22:%22Miss%C3%A3o%20Plante%22,
+    %22short_name%22:%22Plante%22,
+    %22start_url%22:%22.%22,
+    %22display%22:%22standalone%22,
+    %22theme_color%22:%22%232e7d5c%22,
+    %22background_color%22:%22%23f8f9f7%22,
+    %22icons%22:[
+      {%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232e7d5c'/%3E%3Ctext x='50' y='67' font-size='50' text-anchor='middle' fill='white' font-family='Arial'%3E🌱%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22%7D
+    ]
+  }">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --primary: #2e7d5c;
+      --primary-dark: #1f5a42;
+      --primary-light: #e8f3ed;
+      --accent: #f4a261;
+      --accent-dark: #e76f51;
+      --bg: #f8f9f7;
+      --bg-alt: #edf2eb;
+      --card: #ffffff;
+      --text: #1f2a24;
+      --text-light: #5c6b64;
+      --border: #e2e8e0;
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 30px rgba(0,0,0,0.08);
+      --radius-sm: 12px;
+      --radius-md: 16px;
+      --radius-lg: 20px;
+    }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .theme-gerardo { --primary: #2e7d5c; }
+    .theme-tais { --primary: #7b5c9e; }
+    .theme-ronan { --primary: #4a7b9d; }
+    body.theme-gerardo { background: linear-gradient(180deg, #e8f3ed 0%, #d4e6d9 100%); }
+    body.theme-tais { background: linear-gradient(180deg, #f0e8f3 0%, #e4d4eb 100%); }
+    body.theme-ronan { background: linear-gradient(180deg, #e8eef3 0%, #d4dfe6 100%); }
+    
+    .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+    
+    /* Header */
+    .header {
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius-lg);
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      border: 1px solid var(--border);
+    }
+    .logo h1 { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+    .logo p { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+    .user-area { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    
+    /* Botões */
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .logout-btn { background: var(--accent-dark); }
+    .nav-btn { background: #2196F3; display: inline-flex; align-items: center; gap: 6px; }
+    .nav-btn.active { background: var(--primary-dark); }
+    .install-btn, .change-password-btn, .horta-btn, .timer-btn { font-size: 0.7rem; padding: 6px 12px; }
+    .icon-btn { background: transparent; color: var(--text-light); padding: 6px 10px; }
+    .icon-btn:hover { background: var(--primary-light); color: var(--primary); transform: none; }
+    .add-person-btn { background: var(--primary-light); color: var(--primary-dark); }
+    .task-btn { background: transparent; color: var(--text-light); padding: 4px 6px; border-radius: 6px; }
+    .task-btn:hover { background: var(--primary-light); color: var(--primary); transform: none; }
+    
+    /* Navegação */
+    .nav-tabs {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      border: 1px solid var(--border);
+    }
+    .nav-tab {
+      background: transparent;
+      color: var(--text);
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      border-radius: var(--radius-sm);
+    }
+    .nav-tab.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; }
+    
+    /* Cards */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .card-header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .card-header .card-actions { display: flex; gap: 8px; }
+    .card-header .card-actions button { background: rgba(255,255,255,0.2); padding: 4px 10px; font-size: 0.75rem; }
+    .card-header .toggle-icon { font-size: 1rem; transition: transform 0.2s; }
+    .card-content { transition: all 0.3s ease; overflow: hidden; }
+    .card-content.collapsed { display: none; }
+    
+    /* Task lists */
+    .task-list { padding: 12px; max-height: 550px; overflow-y: auto; }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      margin: 6px 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+    .task-click-area { flex: 1; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+    .drag-handle { cursor: grab; font-size: 1rem; opacity: 0.4; padding: 0 4px; }
+    .drag-handle:active { cursor: grabbing; }
+    .task-check { width: 20px; height: 20px; position: relative; flex-shrink: 0; }
+    .task-check input { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; z-index: 1; }
+    .checkmark {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      background: var(--bg);
+      border-radius: 5px;
+      border: 2px solid var(--border);
+      transition: all 0.2s;
+      pointer-events: none;
+    }
+    .task-check input:checked + .checkmark { background: var(--primary); border-color: var(--primary); }
+    .checkmark:after {
+      content: "";
+      display: none;
+      position: absolute;
+      left: 5px;
+      top: 1px;
+      width: 5px;
+      height: 9px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .task-check input:checked + .checkmark:after { display: block; }
+    .task-info { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+    .task-time { background: var(--primary-light); color: var(--primary-dark); padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 600; }
+    .task-desc { font-size: 0.85rem; font-weight: 500; }
+    .completed-task .task-desc { text-decoration: line-through; color: var(--text-light); }
+    .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    
+    /* Person selector */
+    .person-selector {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .person-selector h3 { margin-bottom: 12px; font-size: 0.9rem; font-weight: 500; }
+    .person-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .person-btn {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 16px;
+      border-radius: var(--radius-sm);
+    }
+    .person-btn.active { background: var(--primary); color: white; }
+    .current-person {
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    /* Progress */
+    .progress-section {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 10px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 6px; }
+    .progress-bar { background: var(--border); height: 6px; border-radius: 10px; overflow: hidden; }
+    .progress-fill { background: linear-gradient(90deg, var(--primary), #4caf8c); height: 100%; width: 0%; transition: width 0.3s; }
+    
+    /* Add task inputs */
+    .add-task-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+    .add-task-input input { margin: 0; flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    
+    /* Pedidos */
+    .pedido-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--primary);
+    }
+    .pedido-texto { flex: 1; font-size: 0.85rem; }
+    .pedido-resolvido .pedido-texto { text-decoration: line-through; opacity: 0.6; }
+    .pedido-actions { display: flex; gap: 4px; }
+    .pedido-btn { background: transparent; color: var(--text-light); padding: 4px 8px; cursor: pointer; border-radius: var(--radius-sm); }
+    .pedido-btn:hover { background: var(--primary-light); color: var(--primary); }
+    .pedidos-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .add-pedido-btn { background: var(--primary-light); color: var(--primary-dark); padding: 4px 10px; cursor: pointer; border-radius: var(--radius-sm); }
+    
+    /* Horta styles */
+    .category { margin-bottom: 20px; }
+    .category-title {
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .checkbox-item input { width: 18px; height: 18px; cursor: pointer; }
+    .checkbox-item label { flex: 1; font-size: 0.9rem; cursor: pointer; }
+    .checkbox-item.completed label { text-decoration: line-through; color: #9e9e8a; }
+    .btn-reset { background: var(--accent-dark); width: 100%; margin-top: 16px; }
+    .spacing-info { background: var(--primary-light); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; }
+    .spacing-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    .calc-area { background: var(--primary-light); border-radius: var(--radius-md); padding: 16px; margin-top: 16px; }
+    .calc-input { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .calc-input input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .calc-result { font-size: 0.85rem; color: var(--primary); font-weight: 500; margin-top: 10px; padding: 10px; background: white; border-radius: var(--radius-sm); }
+    .note { background: #fef8e7; border-left: 4px solid var(--accent); padding: 16px; border-radius: var(--radius-md); font-size: 0.85rem; }
+    
+    /* Timer styles */
+    .clock-dashboard { background: var(--card); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 20px; text-align: center; }
+    .time { font-size: 3rem; font-weight: 700; color: var(--primary); font-family: monospace; }
+    .date { color: var(--text-light); margin-top: 8px; }
+    .timers-header { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+    .add-timer-btn {
+      background: var(--primary);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+    .config-card {
+      background: rgba(8, 14, 26, 0.05);
+      border-radius: var(--radius-md);
+      padding: 0.9rem 1.2rem;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+    .config-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .config-title { font-weight: bold; background: var(--primary-light); padding: 4px 14px; border-radius: 40px; font-size: 0.85rem; color: var(--primary-dark); }
+    .delete-timer-btn { background: #5a2a2a; width: 26px; height: 26px; border-radius: 50%; font-size: 1rem; padding: 0; }
+    .status-badge { font-size: 0.75rem; padding: 4px 12px; border-radius: 40px; font-weight: bold; }
+    .schedule-row { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 8px; }
+    .time-picker { display: flex; align-items: center; gap: 10px; background: var(--bg); padding: 6px 15px; border-radius: 60px; }
+    .time-picker label { font-size: 0.8rem; font-weight: bold; }
+    input[type="time"] { background: var(--card); border: 1px solid var(--border); padding: 6px 12px; border-radius: 36px; font-size: 0.9rem; }
+    
+    /* Tank canvas */
+    .tank-container { background: rgba(0,0,0,0.4); border-radius: 48px; padding: 20px; margin-top: 20px; }
+    .canvas-wrapper { display: flex; justify-content: center; }
+    canvas { display: block; margin: 0 auto; border-radius: 28px; cursor: grab; width: 100%; height: auto; background: #0d2620; max-width: 500px; }
+    input[type="range"] { width: 100%; margin: 10px 0; }
+    .tank-status { text-align: center; color: var(--text-light); font-size: 12px; margin-top: 10px; }
+    .sync-badge { display: inline-block; padding: 4px 12px; border-radius: 40px; font-size: 0.7rem; margin-bottom: 12px; background: rgba(0,0,0,0.05); }
+    .online-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #0f9d58; margin-right: 6px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    
+    /* Modais */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+    }
+    .modal-content h3 { color: var(--primary); margin-bottom: 20px; }
+    input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9rem; }
+    .password-wrapper { position: relative; display: flex; align-items: center; }
+    .password-wrapper input { flex: 1; padding-right: 45px; }
+    .toggle-password { position: absolute; right: 12px; background: transparent; color: var(--text-light); padding: 0; cursor: pointer; }
+    .footer { text-align: center; margin-top: 24px; padding: 12px; color: var(--text-light); font-size: 0.7rem; }
+    
+    @media (max-width: 700px) {
+      .container { padding: 12px; }
+      .nav-tab { font-size: 0.75rem; padding: 8px; }
+      .task-info { flex-direction: column; gap: 4px; align-items: flex-start; }
+      .schedule-row { flex-direction: column; }
+      .time-picker { justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <h1>🌱 Missão Plante</h1>
+      <p>rotina • horta • automação</p>
+    </div>
+    <div class="user-area" id="userArea"></div>
+  </div>
+
+  <!-- Navegação -->
+  <div class="nav-tabs" id="navTabs">
+    <button class="nav-tab active" data-view="rotina">📋 Rotina</button>
+    <button class="nav-tab" data-view="horta">🌱 Horta</button>
+    <button class="nav-tab" data-view="timer">⏰ Timer + Água</button>
+  </div>
+
+  <!-- View Rotina -->
+  <div id="viewRotina" class="view active">
+    <div id="personSelectorPanel" class="person-selector" style="display:none;">
+      <h3>👥 Selecione a pessoa:</h3>
+      <div class="person-buttons" id="personButtons"></div>
+    </div>
+    <div class="current-person" id="currentPersonDisplay">
+      <span>📋 <span id="currentPersonName">Carregando...</span></span>
+      <div id="viewActions"></div>
+    </div>
+    <div class="progress-section">
+      <div class="progress-stats"><span>📊 Progresso</span><span id="statsText">0/0</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="card" id="timelineCard">
+      <div class="card-header" id="timelineHeader">
+        <span>⏰ Horários</span>
+        <div class="card-actions" id="timelineActions"></div>
+        <span class="toggle-icon" id="timelineToggle">▼</span>
+      </div>
+      <div class="card-content" id="timelineContent">
+        <div id="timelineList" class="task-list"></div>
+        <div id="timelineAdd" class="add-task-input" style="display:none">
+          <input type="time" id="newTime" placeholder="Horário">
+          <input type="text" id="newDesc" placeholder="Tarefa">
+          <button id="confirmTimelineBtn">✓</button>
+          <button id="cancelTimelineBtn" style="background:#ccc;">✗</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="extraCard">
+      <div class="card-header" id="extraHeader">
+        <span>🌻 Essenciais</span>
+        <div class="card-actions" id="extraActions"></div>
+        <span class="toggle-icon" id="extraToggle">▼</span>
+      </div>
+      <div class="card-content" id="extraContent">
+        <div id="extraList" class="task-list"></div>
+        <div id="extraAdd" class="add-task-input" style="display:none">
+          <input type="text" id="newIcon" placeholder="🎯 Emoji">
+          <input type="text" id="newExtraDesc" placeholder="Tarefa">
+          <button id="confirmExtraBtn">✓</button>
+          <button id="cancelExtraBtn" style="background:#ccc;">✗</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="pedidosCard">
+      <div class="card-header" id="pedidosHeader">
+        <span>📝 Pedidos</span>
+        <span class="toggle-icon" id="pedidosToggle">▼</span>
+      </div>
+      <div class="card-content" id="pedidosContent">
+        <div id="pedidosList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Horta -->
+  <div id="viewHorta" class="view">
+    <div class="card">
+      <div class="card-header"><span>🛒</span> Lista de Compras</div>
+      <div class="card-content">
+        <div id="shoppingList"></div>
+        <button class="btn-reset" id="resetShoppingBtn">↺ Limpar todas as marcações</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span>📏</span> Espaçamentos e Calculadora</div>
+      <div class="card-content">
+        <div class="spacing-info">
+          <div class="spacing-item"><strong>Alface</strong><span>20 cm entre plantas</span></div>
+          <div class="spacing-item"><strong>Brócolis / Couve</strong><span>50 cm entre plantas</span></div>
+          <div class="spacing-item"><strong>Rabanete, Cenoura, Beterraba</strong><span>10-15 cm entre plantas</span></div>
+          <div class="spacing-item"><strong>Temperos (salsa, coentro)</strong><span>15-20 cm entre plantas</span></div>
+          <div class="spacing-item"><strong>Ervilha (tutorada)</strong><span>20 cm entre plantas</span></div>
+        </div>
+        <div class="calc-area">
+          <h4 style="color:var(--primary); margin-bottom:12px;">📐 Calcular número de mudas</h4>
+          <div class="calc-input">
+            <input type="number" id="canteiroLargura" placeholder="Largura do canteiro (cm)" step="any">
+            <input type="number" id="canteiroComprimento" placeholder="Comprimento do canteiro (cm)" step="any">
+          </div>
+          <div class="calc-input">
+            <input type="number" id="espacamento" placeholder="Espaçamento entre plantas (cm)" step="any" value="20">
+            <button id="calcularBtn">Calcular</button>
+          </div>
+          <div id="calcResultado" class="calc-result"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span>📝</span> Observações sobre o solo</div>
+      <div class="card-content">
+        <div class="note">
+          🌍 <strong>Sobre o solo:</strong> Se a terra fosse virgem e não estivesse frio, seria interessante plantar <strong>feijão</strong> primeiro para ajudar na fixação de nitrogênio no solo.<br><br>
+          ❄️ <strong>Como está frio</strong>, começar pelas hortaliças listadas acima é uma opção mais adequada.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Timer + Água -->
+  <div id="viewTimer" class="view">
+    <div class="clock-dashboard">
+      <div class="sync-badge"><span class="online-indicator"></span> Sincronizado com Firebase</div>
+      <div class="time" id="liveClock">--:--:--</div>
+      <div class="date" id="liveDate">Carregando...</div>
+      <div class="timers-header">
+        <button class="add-timer-btn" id="addTimerBtn" title="Adicionar novo timer">+</button>
+      </div>
+      <div class="config-grid" id="configContainer"></div>
+      <div class="note" style="margin-top: 16px; text-align: center;">
+        ⏰ <strong>Funcionamento automático:</strong> Cada timer liga e desliga nos horários programados.<br>
+        ✅ Clique no <strong style="color:var(--primary);">+</strong> para adicionar. Clique no <strong style="color:#ffaaaa;">✖</strong> para remover.
+      </div>
+    </div>
+    <div class="tank-container">
+      <div class="canvas-wrapper">
+        <canvas id="tankCanvas" width="500" height="400"></canvas>
+      </div>
+      <div class="controls">
+        <input type="range" id="levelSlider" min="0" max="100" value="50">
+      </div>
+      <div class="tank-status" id="statusMsg">🎮 Mova o mouse ou incline o telefone</div>
+    </div>
+  </div>
+
+  <div class="footer">✅ Missão Plante - Tudo em um só lugar | Sincronizado em tempo real</div>
+</div>
+
+<!-- Modais -->
+<div id="loginModal" class="modal" style="display:flex">
+  <div class="modal-content">
+    <h3>🔐 Entrar</h3>
+    <input type="text" id="loginUser" placeholder="Usuário" autocomplete="off">
+    <div class="password-wrapper">
+      <input type="password" id="loginPass" placeholder="Senha">
+      <button class="toggle-password" id="togglePassword">👁️</button>
+    </div>
+    <button id="doLogin" style="width:100%;margin-top:12px;">Entrar</button>
+    <div id="loginErrorMsg" style="color:red; font-size:0.8rem; margin-top:8px;"></div>
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border); font-size:0.7rem; text-align:center;">
+      <strong>Credenciais:</strong><br>
+      ronan / plante | tais / planta | gerardo / missionario
+    </div>
+  </div>
+</div>
+
+<div id="addUserModal" class="modal">
+  <div class="modal-content">
+    <span id="closeAddUserModal" style="float:right;cursor:pointer;font-size:24px">&times;</span>
+    <h3>➕ Novo usuário</h3>
+    <input type="text" id="newUserName" placeholder="Usuário">
+    <input type="text" id="newFullName" placeholder="Nome">
+    <input type="password" id="newPass" placeholder="Senha">
+    <select id="newRole">
+      <option value="executor">Missionário</option>
+      <option value="admin">Admin</option>
+    </select>
+    <select id="newTheme">
+      <option value="default">Padrão</option>
+      <option value="gerardo">Verde</option>
+      <option value="tais">Roxo</option>
+      <option value="ronan">Azul</option>
+    </select>
+    <button id="confirmAddUserBtn">Adicionar</button>
+  </div>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <span id="closeEditModal" style="float:right;cursor:pointer;font-size:24px">&times;</span>
+    <h3>✏️ Editar Tarefa</h3>
+    <input type="text" id="editTime" placeholder="Horário/Ícone">
+    <input type="text" id="editDesc" placeholder="Descrição">
+    <input type="hidden" id="editId">
+    <input type="hidden" id="editType">
+    <button id="saveEdit">Salvar</button>
+  </div>
+</div>
+
+<div id="changePasswordModal" class="modal">
+  <div class="modal-content">
+    <span id="closeChangePasswordModal" style="float:right;cursor:pointer;font-size:24px">&times;</span>
+    <h3>🔐 Alterar Senha</h3>
+    <p style="margin-bottom:15px; font-size:0.8rem;">Alterando senha do usuário: <strong id="targetUserName"></strong></p>
+    <input type="password" id="newPasswordInput" placeholder="Nova senha">
+    <input type="password" id="confirmPasswordInput" placeholder="Confirmar nova senha">
+    <button id="confirmChangePasswordBtn" style="width:100%; margin-top:10px;">Alterar Senha</button>
+  </div>
+</div>
+
+<script>
+// ==================== FIREBASE ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyDOYa9gaDuuNMiGXEyydYpjOuBX4bNjXoo",
+  authDomain: "rotina-plante.firebaseapp.com",
+  projectId: "rotina-plante",
+  storageBucket: "rotina-plante.firebasestorage.app",
+  messagingSenderId: "382389999996",
+  appId: "1:382389999996:web:d210a061cf2587ab84acf9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ==================== ESTADO GLOBAL ====================
+let currentUser = null;
+let currentViewingPerson = null;
+let tasksData = {};
+let pedidosData = {};
+let users = {};
+let sortableInstances = { timeline: null, extra: null };
+let collapseState = { timeline: false, extra: false, pedidos: false };
+let deferredPrompt;
+
+// Dados padrão
+const DEFAULT_TIMELINE = [
+  {id:"t0",time:"06:00",desc:"Levantar e preparar"},{id:"t1",time:"06:20",desc:"Culto familiar"},
+  {id:"t2",time:"07:00",desc:"Café da manhã"},{id:"t3",time:"07:30",desc:"Preparar"},
+  {id:"t4",time:"07:45",desc:"Sair"},{id:"t5",time:"08:00",desc:"Dar comida prós cachorros"},
+  {id:"t6",time:"08:15",desc:"Molhar a horta"},{id:"t7",time:"08:30",desc:"Molhar a grama toda"},
+  {id:"t8",time:"11:00",desc:"Molhar as plantas da Taís"},{id:"t9",time:"11:20",desc:"Fazer a lista pras mudas"},
+  {id:"t10",time:"11:40",desc:"Procurar folha de aça peixe"},{id:"t11",time:"12:00",desc:"Almoço"},
+  {id:"t12",time:"13:00",desc:"Molhar horta"},{id:"t13",time:"13:35",desc:"Podar o pomar e capinar"},
+  {id:"t14",time:"15:00",desc:"Molhar a grama toda"},{id:"t15",time:"17:00",desc:"Banho"},
+  {id:"t16",time:"17:30",desc:"Janta"},{id:"t17",time:"18:30",desc:"Fazer o culto familiar"},
+  {id:"t18",time:"19:00",desc:"Dormir"}
+];
+const DEFAULT_EXTRA = [
+  {id:"e0",time:"🐦",desc:"Trazer os passarinhos"},{id:"e1",time:"🐟",desc:"Cuidar dos peixinhos"},
+  {id:"e2",time:"🌿",desc:"Cuidar das plantas"},{id:"e3",time:"🌙",desc:"Ferramentas do varal"},
+  {id:"e4",time:"💡",desc:"Luz da frente/trás"},{id:"e5",time:"🐜",desc:"Formigas do galinheiro"},
+  {id:"e6",time:"🌻",desc:"Sementes de girassol"},{id:"e7",time:"🍃",desc:"Folha de asa peixe"},
+  {id:"e8",time:"🔍",desc:"Identificar planta"}
+];
+const DEFAULT_USERS = {
+  ronan: { password: "plante", role: "admin", theme: "ronan", name: "Ronan", hasOwnTasks: true },
+  tais: { password: "planta", role: "admin", theme: "tais", name: "Taís", hasOwnTasks: true },
+  gerardo: { password: "missionario", role: "admin", theme: "gerardo", name: "Gerardo", hasOwnTasks: true }
+};
+
+// Horta data
+const CATEGORIAS = [
+  { nome: "Folhosas", emoji: "🥬", itens: ["Alface", "Couve", "Cebolinha", "Agrião", "Rúcula", "Espinafre", "Mostarda", "Acelga", "Repolho"] },
+  { nome: "Raízes", emoji: "🥕", itens: ["Rabanete", "Cenoura", "Beterraba"] },
+  { nome: "Temperos", emoji: "🌿", itens: ["Salsa", "Coentro", "Alho-poró"] }
+];
+let hortaState = {};
+
+// Timer data
+let timersList = [];
+let currentStatus = [];
+
+// Tank data
+let waterPercent = 50;
+let tiltAngle = 0, targetTilt = 0;
+let waveOffset = 0;
+let bubbles = [];
+let animationId = null;
+
+// ==================== FUNÇÕES AUXILIARES ====================
+const generateId = (prefix) => `${prefix}${Date.now()}${Math.random().toString(36).substr(2,6)}`;
+
+function saveToLocalStorage() {
+  localStorage.setItem('rotina_backup', JSON.stringify({ users, tasksData, pedidosData }));
+  localStorage.setItem('collapse_state', JSON.stringify(collapseState));
+}
+
+function loadFromLocalStorage() {
+  const saved = localStorage.getItem('rotina_backup');
+  if (saved) {
+    try { const data = JSON.parse(saved); if(data.users) users = data.users; if(data.tasksData) tasksData = data.tasksData; if(data.pedidosData) pedidosData = data.pedidosData; } catch(e) {}
+  }
+  const savedCollapse = localStorage.getItem('collapse_state');
+  if (savedCollapse) {
+    try { collapseState = JSON.parse(savedCollapse); } catch(e) {}
+  }
+}
+
+// ==================== ROTINA ====================
+async function loadPersonTasks(person) {
+  return new Promise(async (resolve) => {
+    if (!tasksData[person]) tasksData[person] = { timeline: person === 'gerardo' ? JSON.parse(JSON.stringify(DEFAULT_TIMELINE)) : [], extra: person === 'gerardo' ? JSON.parse(JSON.stringify(DEFAULT_EXTRA)) : [], status: {} };
+    const timelineSnap = await db.ref(`/tasks/${person}/timeline`).once('value');
+    if (timelineSnap.val()) tasksData[person].timeline = timelineSnap.val();
+    const extraSnap = await db.ref(`/tasks/${person}/extra`).once('value');
+    if (extraSnap.val()) tasksData[person].extra = extraSnap.val();
+    const statusSnap = await db.ref(`/tasks/${person}/status`).once('value');
+    if (statusSnap.val()) tasksData[person].status = statusSnap.val();
+    saveToLocalStorage();
+    resolve();
+  });
+}
+
+async function loadPersonPedidos(person) {
+  return new Promise(async (resolve) => {
+    if (!pedidosData[person]) pedidosData[person] = [];
+    const snap = await db.ref(`/pedidos/${person}`).once('value');
+    if (snap.val()) pedidosData[person] = snap.val();
+    saveToLocalStorage();
+    resolve();
+  });
+}
+
+function savePersonTimeline(person) { db.ref(`/tasks/${person}/timeline`).set(tasksData[person].timeline); saveToLocalStorage(); }
+function savePersonExtra(person) { db.ref(`/tasks/${person}/extra`).set(tasksData[person].extra); saveToLocalStorage(); }
+function savePersonStatus(person, id, val) { tasksData[person].status[id] = val; db.ref(`/tasks/${person}/status/${id}`).set(val); saveToLocalStorage(); }
+function savePersonPedidos(person) { db.ref(`/pedidos/${person}`).set(pedidosData[person]); saveToLocalStorage(); }
+
+function addTask(person, type, time, desc) {
+  if (!tasksData[person]) return;
+  const arr = type === 'timeline' ? tasksData[person].timeline : tasksData[person].extra;
+  arr.push({ id: generateId(type === 'timeline' ? 't' : 'e'), time, desc });
+  type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+  renderAll();
+}
+
+function editTask(person, type, id, time, desc) {
+  if (!tasksData[person]) return;
+  const arr = type === 'timeline' ? tasksData[person].timeline : tasksData[person].extra;
+  const task = arr.find(t => t.id === id);
+  if (task) { task.time = time; task.desc = desc; type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person); renderAll(); }
+}
+
+function deleteTask(person, type, id) {
+  if (!tasksData[person]) return;
+  if (type === 'timeline') tasksData[person].timeline = tasksData[person].timeline.filter(t => t.id !== id);
+  else tasksData[person].extra = tasksData[person].extra.filter(t => t.id !== id);
+  type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+  delete tasksData[person].status[id];
+  db.ref(`/tasks/${person}/status/${id}`).remove();
+  renderAll();
+}
+
+function duplicateTask(person, type, id) {
+  if (!tasksData[person]) return;
+  const arr = type === 'timeline' ? tasksData[person].timeline : tasksData[person].extra;
+  const task = arr.find(t => t.id === id);
+  if (task) {
+    arr.push({ ...JSON.parse(JSON.stringify(task)), id: generateId(type === 'timeline' ? 't' : 'e'), desc: task.desc + ' (cópia)' });
+    type === 'timeline' ? savePersonTimeline(person) : savePersonExtra(person);
+    renderAll();
+  }
+}
+
+function toggleStatus(person, id, checked) {
+  if (!tasksData[person]) return;
+  tasksData[person].status[id] = checked;
+  db.ref(`/tasks/${person}/status/${id}`).set(checked);
+  updateProgress();
+  saveToLocalStorage();
+}
+
+function addPedido(person, texto) {
+  if (!pedidosData[person]) pedidosData[person] = [];
+  pedidosData[person].push({ id: generateId('p'), texto: texto.trim(), resolvido: false });
+  savePersonPedidos(person);
+  renderPedidos();
+}
+
+function togglePedidoResolvido(person, pedidoId, resolvido) {
+  const pedido = pedidosData[person]?.find(p => p.id === pedidoId);
+  if (pedido) { pedido.resolvido = resolvido; savePersonPedidos(person); renderPedidos(); }
+}
+
+function deletePedido(person, pedidoId) {
+  if (!pedidosData[person]) return;
+  pedidosData[person] = pedidosData[person].filter(p => p.id !== pedidoId);
+  savePersonPedidos(person);
+  renderPedidos();
+}
+
+function updateProgress() {
+  if (!currentViewingPerson || !tasksData[currentViewingPerson]) return;
+  const data = tasksData[currentViewingPerson];
+  const allTasks = [...data.timeline, ...data.extra];
+  const completed = allTasks.filter(t => data.status[t.id]).length;
+  const percent = allTasks.length ? (completed / allTasks.length) * 100 : 0;
+  const progressFill = document.getElementById('progressFill');
+  const statsText = document.getElementById('statsText');
+  if (progressFill) progressFill.style.width = `${percent}%`;
+  if (statsText) statsText.innerHTML = `${completed}/${allTasks.length}`;
+}
+
+function renderCardActions() {
+  const timelineActions = document.getElementById('timelineActions');
+  const extraActions = document.getElementById('extraActions');
+  const canEdit = currentUser?.role === 'admin' || currentUser?.username === currentViewingPerson;
+
+  if (timelineActions) {
+    timelineActions.innerHTML = '';
+    if (canEdit) {
+      const addBtn = document.createElement('button');
+      addBtn.innerHTML = '+';
+      addBtn.title = 'Adicionar tarefa';
+      addBtn.onclick = (e) => { e.stopPropagation(); const addDiv = document.getElementById('timelineAdd'); if (addDiv) addDiv.style.display = addDiv.style.display === 'none' ? 'flex' : 'none'; };
+      const resetBtn = document.createElement('button');
+      resetBtn.innerHTML = '↺';
+      resetBtn.title = 'Restaurar rotina padrão';
+      resetBtn.onclick = (e) => { e.stopPropagation(); if (confirm('Restaurar rotina original?')) { tasksData[currentViewingPerson].timeline = JSON.parse(JSON.stringify(DEFAULT_TIMELINE)); savePersonTimeline(currentViewingPerson); renderAll(); } };
+      timelineActions.appendChild(addBtn);
+      timelineActions.appendChild(resetBtn);
+    }
+  }
+  if (extraActions) {
+    extraActions.innerHTML = '';
+    if (canEdit) {
+      const addBtn = document.createElement('button');
+      addBtn.innerHTML = '+';
+      addBtn.title = 'Adicionar tarefa';
+      addBtn.onclick = (e) => { e.stopPropagation(); const addDiv = document.getElementById('extraAdd'); if (addDiv) addDiv.style.display = addDiv.style.display === 'none' ? 'flex' : 'none'; };
+      const resetBtn = document.createElement('button');
+      resetBtn.innerHTML = '↺';
+      resetBtn.title = 'Restaurar essenciais padrão';
+      resetBtn.onclick = (e) => { e.stopPropagation(); if (confirm('Restaurar essenciais originais?')) { tasksData[currentViewingPerson].extra = JSON.parse(JSON.stringify(DEFAULT_EXTRA)); savePersonExtra(currentViewingPerson); renderAll(); } };
+      extraActions.appendChild(addBtn);
+      extraActions.appendChild(resetBtn);
+    }
+  }
+}
+
+function renderPedidos() {
+  const container = document.getElementById('pedidosList');
+  if (!container) return;
+  container.innerHTML = '';
+  const isAdmin = currentUser?.role === 'admin';
+  const currentViewing = currentViewingPerson;
+  const podeAdicionarPedido = currentUser?.username === currentViewing;
+  const pedidos = pedidosData[currentViewing] || [];
+  
+  const headerDiv = document.createElement('div');
+  headerDiv.className = 'pedidos-header';
+  headerDiv.innerHTML = `<strong style="color:var(--primary);">${users[currentViewing]?.name || currentViewing}</strong>`;
+  if (podeAdicionarPedido) {
+    const addBtn = document.createElement('button');
+    addBtn.innerHTML = '+ Adicionar pedido';
+    addBtn.className = 'add-pedido-btn';
+    addBtn.onclick = () => { const texto = prompt('Digite o pedido:'); if (texto?.trim()) addPedido(currentViewing, texto); };
+    headerDiv.appendChild(addBtn);
+  }
+  container.appendChild(headerDiv);
+  
+  pedidos.forEach(pedido => {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = `pedido-item ${pedido.resolvido ? 'pedido-resolvido' : ''}`;
+    itemDiv.innerHTML = `
+      <div class="pedido-texto">${pedido.texto}</div>
+      <div class="pedido-actions">
+        <button class="pedido-btn" data-resolver="${pedido.id}">${pedido.resolvido ? '↺' : '✓'}</button>
+        <button class="pedido-btn" data-deletar="${pedido.id}">🗑️</button>
+      </div>
+    `;
+    itemDiv.querySelector('[data-resolver]').onclick = () => togglePedidoResolvido(currentViewing, pedido.id, !pedido.resolvido);
+    itemDiv.querySelector('[data-deletar]').onclick = () => deletePedido(currentViewing, pedido.id);
+    container.appendChild(itemDiv);
+  });
+}
+
+function createTaskElement(person, task, isTimeline, canEdit) {
+  const checked = tasksData[person]?.status[task.id] || false;
+  const div = document.createElement('div');
+  div.className = `task-item ${checked ? 'completed-task' : ''}`;
+  div.setAttribute('data-id', task.id);
+  if (canEdit) { const drag = document.createElement('span'); drag.className = 'drag-handle'; drag.innerHTML = '⋮⋮'; div.appendChild(drag); }
+  const clickArea = document.createElement('div'); clickArea.className = 'task-click-area';
+  const checkWrap = document.createElement('div'); checkWrap.className = 'task-check';
+  const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = checked;
+  cb.onchange = (e) => { e.stopPropagation(); toggleStatus(person, task.id, cb.checked); };
+  const mark = document.createElement('span'); mark.className = 'checkmark';
+  checkWrap.appendChild(cb); checkWrap.appendChild(mark);
+  const info = document.createElement('div'); info.className = 'task-info';
+  const timeSpan = document.createElement('span'); timeSpan.className = 'task-time'; timeSpan.textContent = task.time;
+  const descSpan = document.createElement('span'); descSpan.className = 'task-desc'; descSpan.textContent = task.desc;
+  info.appendChild(timeSpan); info.appendChild(descSpan);
+  clickArea.appendChild(checkWrap); clickArea.appendChild(info);
+  clickArea.onclick = (e) => { e.stopPropagation(); cb.click(); };
+  div.appendChild(clickArea);
+  
+  const actions = document.createElement('div'); actions.className = 'task-actions';
+  if (canEdit) {
+    const editBtn = document.createElement('button'); editBtn.innerHTML = '✏️'; editBtn.className = 'task-btn';
+    editBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('editId').value = task.id; document.getElementById('editType').value = isTimeline ? 'timeline' : 'extra'; document.getElementById('editTime').value = task.time; document.getElementById('editDesc').value = task.desc; document.getElementById('editModal').style.display = 'flex'; };
+    const dupBtn = document.createElement('button'); dupBtn.innerHTML = '📋'; dupBtn.className = 'task-btn';
+    dupBtn.onclick = (e) => { e.stopPropagation(); duplicateTask(person, isTimeline ? 'timeline' : 'extra', task.id); };
+    const delBtn = document.createElement('button'); delBtn.innerHTML = '🗑️'; delBtn.className = 'task-btn';
+    delBtn.onclick = (e) => { e.stopPropagation(); if (confirm('Apagar esta tarefa?')) deleteTask(person, isTimeline ? 'timeline' : 'extra', task.id); };
+    actions.appendChild(editBtn); actions.appendChild(dupBtn); actions.appendChild(delBtn);
+  }
+  div.appendChild(actions);
+  return div;
+}
+
+function renderTasks() {
+  if (!currentViewingPerson || !tasksData[currentViewingPerson]) return;
+  const timelineContainer = document.getElementById('timelineList');
+  const extraContainer = document.getElementById('extraList');
+  const person = currentViewingPerson;
+  const canEdit = currentUser?.role === 'admin' || currentUser?.username === person;
+  
+  if (timelineContainer) {
+    timelineContainer.innerHTML = '';
+    tasksData[person].timeline.forEach(task => timelineContainer.appendChild(createTaskElement(person, task, true, canEdit)));
+    if (sortableInstances.timeline) sortableInstances.timeline.destroy();
+    if (canEdit) {
+      sortableInstances.timeline = new Sortable(timelineContainer, { handle: '.drag-handle', animation: 150, onEnd: () => { const newOrder = []; timelineContainer.querySelectorAll('.task-item').forEach(item => { const id = item.getAttribute('data-id'); const task = tasksData[person].timeline.find(t => t.id === id); if (task) newOrder.push(task); }); if (newOrder.length === tasksData[person].timeline.length) { tasksData[person].timeline = newOrder; savePersonTimeline(person); } } });
+    }
+  }
+  if (extraContainer) {
+    extraContainer.innerHTML = '';
+    tasksData[person].extra.forEach(task => extraContainer.appendChild(createTaskElement(person, task, false, canEdit)));
+    if (sortableInstances.extra) sortableInstances.extra.destroy();
+    if (canEdit) {
+      sortableInstances.extra = new Sortable(extraContainer, { handle: '.drag-handle', animation: 150, onEnd: () => { const newOrder = []; extraContainer.querySelectorAll('.task-item').forEach(item => { const id = item.getAttribute('data-id'); const task = tasksData[person].extra.find(t => t.id === id); if (task) newOrder.push(task); }); if (newOrder.length === tasksData[person].extra.length) { tasksData[person].extra = newOrder; savePersonExtra(person); } } });
+    }
+  }
+  updateProgress();
+  renderCardActions();
+}
+
+function renderAll() {
+  renderTasks();
+  renderPedidos();
+}
+
+function renderPersonSelector() {
+  const container = document.getElementById('personButtons');
+  if (!container) return;
+  container.innerHTML = '';
+  Object.keys(users).forEach(person => {
+    const btn = document.createElement('button');
+    btn.className = `person-btn ${currentViewingPerson === person ? 'active' : ''}`;
+    btn.textContent = users[person]?.name || person;
+    btn.onclick = () => switchToPerson(person);
+    container.appendChild(btn);
+  });
+  if (currentUser?.role === 'admin') {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'icon-btn add-person-btn';
+    addBtn.innerHTML = '+ Adicionar';
+    addBtn.onclick = () => document.getElementById('addUserModal').style.display = 'flex';
+    container.appendChild(addBtn);
+  }
+}
+
+async function switchToPerson(person) {
+  await loadPersonTasks(person);
+  await loadPersonPedidos(person);
+  currentViewingPerson = person;
+  renderPersonSelector();
+  const nameSpan = document.getElementById('currentPersonName');
+  if (nameSpan) nameSpan.textContent = users[person]?.name || person;
+  renderAll();
+}
+
+// ==================== HORTA ====================
+function loadHortaFromFirebase() {
+  db.ref('/horta/compras').on('value', (snap) => {
+    hortaState = snap.val() || {};
+    CATEGORIAS.forEach(cat => cat.itens.forEach(item => { if (hortaState[item] === undefined) hortaState[item] = false; }));
+    renderShoppingList();
+  });
+}
+
+function renderShoppingList() {
+  const container = document.getElementById('shoppingList');
+  if (!container) return;
+  container.innerHTML = '';
+  CATEGORIAS.forEach(cat => {
+    const catDiv = document.createElement('div');
+    catDiv.className = 'category';
+    catDiv.innerHTML = `<div class="category-title"><span>${cat.emoji}</span> ${cat.nome}</div>`;
+    cat.itens.forEach(item => {
+      const isChecked = hortaState[item] || false;
+      const itemDiv = document.createElement('div');
+      itemDiv.className = `checkbox-item ${isChecked ? 'completed' : ''}`;
+      itemDiv.innerHTML = `<input type="checkbox" id="chk_${item.replace(/\s/g, '_')}" ${isChecked ? 'checked' : ''}><label for="chk_${item.replace(/\s/g, '_')}">${item}</label>`;
+      const checkbox = itemDiv.querySelector('input');
+      checkbox.addEventListener('change', () => db.ref(`/horta/compras/${item}`).set(checkbox.checked));
+      catDiv.appendChild(itemDiv);
+    });
+    container.appendChild(catDiv);
+  });
+}
+
+function resetAllFirebase() {
+  const updates = {};
+  CATEGORIAS.forEach(cat => cat.itens.forEach(item => { updates[item] = false; }));
+  db.ref('/horta/compras').update(updates);
+}
+
+function calcularMudas() {
+  const largura = parseFloat(document.getElementById('canteiroLargura')?.value);
+  const comprimento = parseFloat(document.getElementById('canteiroComprimento')?.value);
+  const espacamento = parseFloat(document.getElementById('espacamento')?.value);
+  const resultDiv = document.getElementById('calcResultado');
+  if (!resultDiv) return;
+  if (isNaN(largura) || isNaN(comprimento) || largura <= 0 || comprimento <= 0) { resultDiv.innerHTML = '⚠️ Preencha largura e comprimento do canteiro (valores positivos).'; return; }
+  if (isNaN(espacamento) || espacamento <= 0) { resultDiv.innerHTML = '⚠️ Informe um espaçamento válido.'; return; }
+  const plantasLargura = Math.floor(largura / espacamento);
+  const plantasComprimento = Math.floor(comprimento / espacamento);
+  resultDiv.innerHTML = `📏 <strong>${largura}cm</strong> × <strong>${comprimento}cm</strong> com espaçamento de <strong>${espacamento}cm</strong><br>🌱 Cabe cerca de <strong>${plantasLargura}</strong> plantas na largura × <strong>${plantasComprimento}</strong> plantas no comprimento<br>🟢 <strong>Total aproximado: ${plantasLargura * plantasComprimento} mudas</strong>`;
+}
+
+// ==================== TIMER ====================
+function loadTimersFromFirebase() {
+  db.ref('/timers/list').on('value', (snap) => {
+    const data = snap.val();
+    if (data && Array.isArray(data) && data.length > 0) timersList = data;
+    else timersList = [
+      { id: 1, name: "Timer 1", onTime: "13:00", offTime: "14:00", enabled: true },
+      { id: 2, name: "Timer 2", onTime: "08:30", offTime: "12:15", enabled: true },
+      { id: 3, name: "Timer 3", onTime: "18:00", offTime: "22:30", enabled: true },
+      { id: 4, name: "Timer 4", onTime: "00:00", offTime: "06:00", enabled: true },
+      { id: 5, name: "Timer 5", onTime: "15:45", offTime: "17:20", enabled: true }
+    ];
+    renderTimers();
+  });
+}
+
+function saveTimersToFirebase() { db.ref('/timers/list').set(timersList); }
+
+function toMinutes(timeStr) { const [h,m] = timeStr.split(":").map(Number); return h * 60 + m; }
+
+function isTimerActive(timer, currentHM) {
+  if (!timer.enabled) return false;
+  const now = toMinutes(currentHM), on = toMinutes(timer.onTime), off = toMinutes(timer.offTime);
+  if (on === off) return false;
+  if (on < off) return now >= on && now < off;
+  return now >= on || now < off;
+}
+
+function renderTimers() {
+  const container = document.getElementById('configContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  const now = new Date();
+  const currentHM = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  
+  timersList.forEach((timer, idx) => {
+    const active = isTimerActive(timer, currentHM);
+    const card = document.createElement('div');
+    card.className = 'config-card';
+    card.innerHTML = `
+      <div class="config-header">
+        <div class="title-area">
+          <span class="config-title">${timer.name} ⏲️</span>
+          <button class="delete-timer-btn" data-id="${timer.id}">✖</button>
+        </div>
+        <span class="status-badge" style="background:${active ? '#0f6c3a' : '#6e2a2a'}; color:white;">${active ? '🟢 LIGADO' : '🔴 DESLIGADO'}</span>
+      </div>
+      <div class="schedule-row">
+        <div class="time-picker"><label>ON</label><input type="time" class="on-time" value="${timer.onTime}" data-id="${timer.id}"></div>
+        <div class="time-picker"><label>OFF</label><input type="time" class="off-time" value="${timer.offTime}" data-id="${timer.id}"></div>
+      </div>
+    `;
+    card.querySelector('.delete-timer-btn').onclick = () => { timersList = timersList.filter(t => t.id !== timer.id); saveTimersToFirebase(); renderTimers(); };
+    card.querySelector('.on-time').onchange = (e) => { timer.onTime = e.target.value; saveTimersToFirebase(); renderTimers(); };
+    card.querySelector('.off-time').onchange = (e) => { timer.offTime = e.target.value; saveTimersToFirebase(); renderTimers(); };
+    container.appendChild(card);
+  });
+}
+
+function addNewTimer() {
+  const newId = timersList.length > 0 ? Math.max(...timersList.map(t => t.id)) + 1 : 1;
+  timersList.push({ id: newId, name: `Timer ${newId}`, onTime: "09:00", offTime: "17:00", enabled: true });
+  saveTimersToFirebase();
+  renderTimers();
+}
+
+// ==================== TANQUE DE ÁGUA ====================
+function loadWaterLevel() {
+  db.ref('/tanque/nivel').on('value', (snap) => {
+    const nivel = snap.val();
+    if (typeof nivel === 'number') waterPercent = Math.min(100, Math.max(0, nivel));
+    const slider = document.getElementById('levelSlider');
+    if (slider) slider.value = waterPercent;
+  });
+}
+
+function saveWaterLevel(nivel) { db.ref('/tanque/nivel').set(nivel); }
+
+// Canvas tank
+function initTankCanvas() {
+  const canvas = document.getElementById('tankCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  function resizeCanvas() {
+    const container = canvas.parentElement;
+    const maxWidth = container.clientWidth;
+    let displayWidth = Math.min(500, maxWidth);
+    let displayHeight = (displayWidth / 500) * 400;
+    canvas.width = 500;
+    canvas.height = 400;
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+  }
+  
+  class Bubble {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = 50 + 15 + Math.random() * (420 - 30);
+      this.y = 360 - 10 - Math.random() * (waterPercent / 100) * 320;
+      this.size = 2 + Math.random() * 3;
+      this.speed = 0.3 + Math.random() * 1.2;
+      this.wobble = Math.random() * Math.PI * 2;
+      this.wobbleSpeed = 0.03 + Math.random() * 0.06;
+    }
+    update(currentWaterSurfaceY) {
+      this.y -= this.speed;
+      this.wobble += this.wobbleSpeed;
+      this.x += Math.sin(this.wobble) * 0.3;
+      this.x += tiltAngle * 0.5;
+      this.x = Math.min(490 - 8, Math.max(50 + 8, this.x));
+      if (this.y < currentWaterSurfaceY || this.y < 50 + 5) {
+        this.y = 360 - 8;
+        this.x = 50 + 15 + Math.random() * (420 - 30);
+      }
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(180, 220, 255, 0.6)';
+      ctx.fill();
+    }
+  }
+  
+  function initBubbles() { bubbles = []; for (let i = 0; i < 18; i++) bubbles.push(new Bubble()); }
+  
+  function draw() {
+    ctx.clearRect(0, 0, 500, 400);
+    ctx.fillStyle = '#0d2a22';
+    ctx.fillRect(40, 40, 420, 320);
+    ctx.strokeStyle = '#4aa8a5';
+    ctx.strokeRect(40, 40, 420, 320);
+    
+    ctx.font = "bold 14px monospace";
+    ctx.fillStyle = "#ffdd88";
+    for(let m = 1; m <= 4; m++) { ctx.fillText(m+"/4", 40 - 8, 360 - (m/4)*320 + 5); }
+    
+    const centerX = 250;
+    const avgFillY = 360 - (waterPercent / 100) * 320;
+    const slope = Math.tan(tiltAngle);
+    let yLeft = avgFillY + slope * (40 - centerX);
+    let yRight = avgFillY + slope * (460 - centerX);
+    yLeft = Math.min(360 - 3, Math.max(40 + 3, yLeft));
+    yRight = Math.min(360 - 3, Math.max(40 + 3, yRight));
+    
+    ctx.beginPath();
+    ctx.moveTo(40, 360);
+    ctx.lineTo(40, yLeft);
+    for (let i = 0; i <= 30; i++) { const t = i / 30; const x = 40 + t * 420; let yBase = yLeft + (yRight - yLeft) * t; const y = yBase + Math.sin(t * Math.PI * 3 + waveOffset) * 3; ctx.lineTo(x, y); }
+    ctx.lineTo(460, 360);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(40, 40, 460, 360);
+    grad.addColorStop(0, '#2ab0e6'); grad.addColorStop(1, '#0c5f88');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    
+    for (let bubble of bubbles) {
+      let tSurface = (bubble.x - 40) / 420;
+      tSurface = Math.min(1, Math.max(0, tSurface));
+      let waterSurfaceY = yLeft + (yRight - yLeft) * tSurface;
+      waterSurfaceY = Math.min(360, Math.max(40, waterSurfaceY));
+      bubble.update(waterSurfaceY);
+      if (bubble.y < waterSurfaceY && bubble.y > 40) bubble.draw();
+    }
+    
+    ctx.font = "bold 46px system-ui";
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.fillText(`${Math.floor(waterPercent)}%`, 250, 200);
+    waveOffset += 0.12;
+    requestAnimationFrame(draw);
+  }
+  
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  initBubbles();
+  draw();
+  
+  let gyroEnabled = false;
+  function handleMouse(e) {
+    if (gyroEnabled) return;
+    let rect = canvas.getBoundingClientRect();
+    let x = (e.clientX - rect.left) / rect.width;
+    x = Math.min(1, Math.max(0, x));
+    targetTilt = (x - 0.5) * 2 * 0.4;
+    document.getElementById('statusMsg').innerHTML = `🖱️ Mouse: ${Math.floor(Math.abs(targetTilt * 50))}% | Nível: ${waterPercent}%`;
+  }
+  function handleGyro(e) {
+    if (!gyroEnabled) return;
+    let gamma = e.gamma;
+    if (gamma !== null && gamma !== undefined) {
+      let clamped = Math.min(60, Math.max(-60, gamma));
+      targetTilt = (clamped / 60) * 0.4;
+      document.getElementById('statusMsg').innerHTML = `📳 Inclinação: ${Math.floor(clamped)}° | Nível: ${waterPercent}%`;
+    }
+  }
+  canvas.addEventListener('mousemove', handleMouse);
+  canvas.addEventListener('touchmove', (e) => { if (!gyroEnabled && e.touches[0]) { let rect = canvas.getBoundingClientRect(); let x = (e.touches[0].clientX - rect.left) / rect.width; x = Math.min(1, Math.max(0, x)); targetTilt = (x - 0.5) * 2 * 0.4; e.preventDefault(); } }, { passive: false });
+  canvas.addEventListener('dblclick', () => { targetTilt = 0; });
+  
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    const btn = document.createElement('div'); btn.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;background:var(--primary);color:white;padding:12px;border-radius:30px;text-align:center;z-index:9999;'; btn.innerText = '📱 Ativar inclinação do telefone'; btn.onclick = async () => { try { await DeviceOrientationEvent.requestPermission(); window.addEventListener('deviceorientation', handleGyro); gyroEnabled = true; btn.remove(); } catch(e) { btn.remove(); } }; document.body.appendChild(btn); setTimeout(() => btn.remove(), 10000);
+  } else if (typeof DeviceOrientationEvent !== 'undefined') { window.addEventListener('deviceorientation', handleGyro); gyroEnabled = true; }
+  
+  setInterval(() => { tiltAngle += (targetTilt - tiltAngle) * 0.08; }, 16);
+}
+
+// ==================== RELÓGIO ====================
+function startClock() {
+  setInterval(() => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('pt-BR');
+    const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const clockEl = document.getElementById('liveClock');
+    const dateEl = document.getElementById('liveDate');
+    if (clockEl) clockEl.textContent = timeStr;
+    if (dateEl) dateEl.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    
+    const currentHM = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    let changed = false;
+    timersList.forEach((timer, i) => { const newActive = isTimerActive(timer, currentHM); if (currentStatus[i] !== newActive) { currentStatus[i] = newActive; changed = true; } });
+    if (changed) renderTimers();
+  }, 1000);
+}
+
+// ==================== USUÁRIOS ====================
+async function loadUsers() {
+  return new Promise(async (resolve) => {
+    loadFromLocalStorage();
+    if (!users || Object.keys(users).length === 0) users = JSON.parse(JSON.stringify(DEFAULT_USERS));
+    const snap = await db.ref('/users').once('value');
+    const data = snap.val() || {};
+    Object.assign(users, data);
+    saveToLocalStorage();
+    resolve();
+  });
+}
+
+function saveUsers() { db.ref('/users').set(users); saveToLocalStorage(); }
+
+async function changeUserPassword(username, newPassword) {
+  try {
+    await db.ref(`/users/${username}/password`).set(newPassword);
+    if (users[username]) users[username].password = newPassword;
+    saveToLocalStorage();
+    alert(`✅ Senha do usuário ${username} alterada com sucesso!`);
+    return true;
+  } catch(error) { alert('❌ Erro ao alterar senha.'); return false; }
+}
+
+function doLogin() {
+  const user = document.getElementById('loginUser').value.toLowerCase().trim();
+  const pass = document.getElementById('loginPass').value;
+  const u = users[user];
+  const errorMsg = document.getElementById('loginErrorMsg');
+  if (u && u.password === pass) {
+    currentUser = { username: user, role: u.role, theme: u.theme, name: u.name };
+    document.body.className = `theme-${u.theme}`;
+    const userArea = document.getElementById('userArea');
+    userArea.innerHTML = `<span>👤 ${u.name}</span><button class="logout-btn" id="logoutBtn">🚪</button><button class="change-password-btn" id="changePasswordBtn">🔐 Alterar Senha</button>`;
+    document.getElementById('logoutBtn').onclick = () => { currentUser = null; localStorage.removeItem('rotina_sessao'); location.reload(); };
+    document.getElementById('changePasswordBtn').onclick = () => { const usersList = Object.keys(users); const targetUser = prompt(`Usuários disponíveis:\n${usersList.join(', ')}\n\nDigite o nome do usuário:`); if (targetUser && users[targetUser]) { document.getElementById('targetUserName').textContent = targetUser; document.getElementById('changePasswordModal').style.display = 'flex'; } else if (targetUser) alert('❌ Usuário não encontrado!'); };
+    
+    const isAdmin = u.role === 'admin';
+    const personSelectorPanel = document.getElementById('personSelectorPanel');
+    const viewActions = document.getElementById('viewActions');
+    if (isAdmin) {
+      if (personSelectorPanel) personSelectorPanel.style.display = 'block';
+      if (viewActions) viewActions.innerHTML = `<button id="backToMyTasks" class="switch-view-btn">📋 Minhas Tarefas</button>`;
+      document.getElementById('backToMyTasks')?.addEventListener('click', () => switchToPerson(user));
+      renderPersonSelector();
+      switchToPerson(user);
+    } else {
+      if (personSelectorPanel) personSelectorPanel.style.display = 'none';
+      if (viewActions) viewActions.innerHTML = '';
+      switchToPerson(user);
+    }
+    document.getElementById('loginModal').style.display = 'none';
+    localStorage.setItem('rotina_sessao', JSON.stringify({ username: user, timestamp: Date.now() }));
+  } else { if (errorMsg) errorMsg.innerHTML = '❌ Usuário ou senha inválidos!'; }
+}
+
+// ==================== COLLAPSE ====================
+function setupCollapsible() {
+  const timelineHeader = document.getElementById('timelineHeader');
+  const extraHeader = document.getElementById('extraHeader');
+  const pedidosHeader = document.getElementById('pedidosHeader');
+  const timelineContent = document.getElementById('timelineContent');
+  const extraContent = document.getElementById('extraContent');
+  const pedidosContent = document.getElementById('pedidosContent');
+  const timelineToggle = document.getElementById('timelineToggle');
+  const extraToggle = document.getElementById('extraToggle');
+  const pedidosToggle = document.getElementById('pedidosToggle');
+  
+  if (timelineContent) timelineContent.classList.toggle('collapsed', collapseState.timeline);
+  if (extraContent) extraContent.classList.toggle('collapsed', collapseState.extra);
+  if (pedidosContent) pedidosContent.classList.toggle('collapsed', collapseState.pedidos);
+  if (timelineToggle) timelineToggle.textContent = collapseState.timeline ? '▶' : '▼';
+  if (extraToggle) extraToggle.textContent = collapseState.extra ? '▶' : '▼';
+  if (pedidosToggle) pedidosToggle.textContent = collapseState.pedidos ? '▶' : '▼';
+  
+  timelineHeader?.addEventListener('click', (e) => { if (!e.target.closest('.card-actions')) { collapseState.timeline = !collapseState.timeline; timelineContent.classList.toggle('collapsed', collapseState.timeline); timelineToggle.textContent = collapseState.timeline ? '▶' : '▼'; saveToLocalStorage(); } });
+  extraHeader?.addEventListener('click', (e) => { if (!e.target.closest('.card-actions')) { collapseState.extra = !collapseState.extra; extraContent.classList.toggle('collapsed', collapseState.extra); extraToggle.textContent = collapseState.extra ? '▶' : '▼'; saveToLocalStorage(); } });
+  pedidosHeader?.addEventListener('click', () => { collapseState.pedidos = !collapseState.pedidos; pedidosContent.classList.toggle('collapsed', collapseState.pedidos); pedidosToggle.textContent = collapseState.pedidos ? '▶' : '▼'; saveToLocalStorage(); });
+}
+
+// ==================== NAVEGAÇÃO ====================
+function setupNavigation() {
+  const tabs = document.querySelectorAll('.nav-tab');
+  const views = document.querySelectorAll('.view');
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      views.forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      const viewName = `view${tab.dataset.view.charAt(0).toUpperCase() + tab.dataset.view.slice(1)}`;
+      document.getElementById(viewName).classList.add('active');
+    };
+  });
+}
+
+// ==================== PWA INSTALL ====================
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!document.getElementById('installBtn')) {
+    const installBtn = document.createElement('button');
+    installBtn.id = 'installBtn';
+    installBtn.className = 'install-btn';
+    installBtn.innerHTML = '📲 Instalar App';
+    installBtn.onclick = async () => { if (deferredPrompt) { deferredPrompt.prompt(); const { outcome } = await deferredPrompt.userChoice; if (outcome === 'accepted') deferredPrompt = null; installBtn.style.display = 'none'; } };
+    document.getElementById('userArea')?.appendChild(installBtn);
+  }
+});
+
+// ==================== INICIALIZAÇÃO ====================
+async function init() {
+  setupNavigation();
+  await loadUsers();
+  loadTimersFromFirebase();
+  loadHortaFromFirebase();
+  loadWaterLevel();
+  startClock();
+  initTankCanvas();
+  setupCollapsible();
+  
+  // Event listeners
+  document.getElementById('doLogin').onclick = doLogin;
+  document.getElementById('togglePassword').onclick = () => { const p = document.getElementById('loginPass'); if (p) p.type = p.type === 'password' ? 'text' : 'password'; };
+  document.getElementById('addTimerBtn').onclick = addNewTimer;
+  document.getElementById('calcularBtn').onclick = calcularMudas;
+  document.getElementById('resetShoppingBtn')?.addEventListener('click', () => { if (confirm('Limpar todas as marcações?')) resetAllFirebase(); });
+  document.getElementById('levelSlider').oninput = (e) => { waterPercent = parseInt(e.target.value); saveWaterLevel(waterPercent); document.getElementById('statusMsg').innerHTML = `💧 Nível: ${waterPercent}%`; };
+  document.getElementById('confirmTimelineBtn').onclick = () => { const time = document.getElementById('newTime')?.value; const desc = document.getElementById('newDesc')?.value; if (time && desc && currentViewingPerson) { addTask(currentViewingPerson, 'timeline', time, desc); document.getElementById('newTime').value = ''; document.getElementById('newDesc').value = ''; document.getElementById('timelineAdd').style.display = 'none'; } };
+  document.getElementById('cancelTimelineBtn').onclick = () => document.getElementById('timelineAdd').style.display = 'none';
+  document.getElementById('confirmExtraBtn').onclick = () => { const icon = document.getElementById('newIcon')?.value || '📌'; const desc = document.getElementById('newExtraDesc')?.value; if (desc && currentViewingPerson) { addTask(currentViewingPerson, 'extra', icon, desc); document.getElementById('newIcon').value = ''; document.getElementById('newExtraDesc').value = ''; document.getElementById('extraAdd').style.display = 'none'; } };
+  document.getElementById('cancelExtraBtn').onclick = () => document.getElementById('extraAdd').style.display = 'none';
+  document.getElementById('saveEdit').onclick = () => { const type = document.getElementById('editType').value; const id = document.getElementById('editId').value; const time = document.getElementById('editTime').value; const desc = document.getElementById('editDesc').value; if (desc && currentViewingPerson) { editTask(currentViewingPerson, type, id, time, desc); document.getElementById('editModal').style.display = 'none'; } };
+  document.getElementById('closeEditModal').onclick = () => document.getElementById('editModal').style.display = 'none';
+  document.getElementById('closeAddUserModal').onclick = () => document.getElementById('addUserModal').style.display = 'none';
+  document.getElementById('closeChangePasswordModal').onclick = () => document.getElementById('changePasswordModal').style.display = 'none';
+  document.getElementById('confirmChangePasswordBtn').onclick = async () => { const newPass = document.getElementById('newPasswordInput').value; const confirmPass = document.getElementById('confirmPasswordInput').value; const targetUser = document.getElementById('targetUserName').textContent; if (!newPass || !confirmPass) alert('Preencha os dois campos!'); else if (newPass !== confirmPass) alert('Senhas não coincidem!'); else if (newPass.length < 3) alert('Senha deve ter pelo menos 3 caracteres!'); else { await changeUserPassword(targetUser, newPass); document.getElementById('changePasswordModal').style.display = 'none'; } };
+  document.getElementById('confirmAddUserBtn').onclick = () => { const u = document.getElementById('newUserName')?.value.toLowerCase().trim(); const n = document.getElementById('newFullName')?.value; const p = document.getElementById('newPass')?.value; const r = document.getElementById('newRole')?.value; const t = document.getElementById('newTheme')?.value; if (u && n && p) { if (users[u]) alert('Usuário já existe'); else { users[u] = { password: p, role: r, theme: t, name: n, hasOwnTasks: r === 'executor' }; saveUsers(); tasksData[u] = { timeline: [], extra: [], status: {} }; pedidosData[u] = []; db.ref(`/tasks/${u}/timeline`).set([]); db.ref(`/tasks/${u}/extra`).set([]); db.ref(`/pedidos/${u}`).set([]); alert('✅ Usuário adicionado!'); if (currentUser?.role === 'admin') renderPersonSelector(); document.getElementById('addUserModal').style.display = 'none'; } } else alert('Preencha todos os campos'); };
+  
+  document.querySelectorAll('.modal').forEach(modal => { modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; }); });
+  
+  // Indicador de conexão Firebase
+  const connectedRef = firebase.database().ref('.info/connected');
+  connectedRef.on('value', (snap) => { document.querySelectorAll('.online-indicator').forEach(el => el.style.background = snap.val() ? '#0f9d58' : '#e76f51'); });
+  
+  // Verificar sessão salva
+  const savedSession = localStorage.getItem('rotina_sessao');
+  if (savedSession) {
+    try { const { username, timestamp } = JSON.parse(savedSession); if (Date.now() - timestamp < 30 * 24 * 60 * 60 * 1000 && users[username]) { currentUser = { username, role: users[username].role, theme: users[username].theme, name: users[username].name }; document.body.className = `theme-${users[username].theme}`; document.getElementById('userArea').innerHTML = `<span>👤 ${users[username].name}</span><button class="logout-btn" id="logoutBtn">🚪</button><button class="change-password-btn" id="changePasswordBtn">🔐 Alterar Senha</button>`; document.getElementById('logoutBtn').onclick = () => { currentUser = null; localStorage.removeItem('rotina_sessao'); location.reload(); }; document.getElementById('changePasswordBtn').onclick = () => { const usersList = Object.keys(users); const targetUser = prompt(`Usuários disponíveis:\n${usersList.join(', ')}\n\nDigite o nome do usuário:`); if (targetUser && users[targetUser]) { document.getElementById('targetUserName').textContent = targetUser; document.getElementById('changePasswordModal').style.display = 'flex'; } else if (targetUser) alert('❌ Usuário não encontrado!'); }; if (users[username].role === 'admin') { document.getElementById('personSelectorPanel').style.display = 'block'; renderPersonSelector(); switchToPerson(username); } else { document.getElementById('personSelectorPanel').style.display = 'none'; switchToPerson(username); } document.getElementById('loginModal').style.display = 'none'; } else document.getElementById('loginModal').style.display = 'flex'; } catch(e) { document.getElementById('loginModal').style.display = 'flex'; }
+  } else document.getElementById('loginModal').style.display = 'flex';
+}
+
+init();
+</script>
+</body>
+</html>
